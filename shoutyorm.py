@@ -180,11 +180,42 @@ def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
     ):
         raise MissingRelationField(
             "Access to '{attr}' manager attribute on {cls} was prevented because it was not part of the prefetch_related() selection used".format(
-                attr=self.field.remote_field.get_cache_name(),
-                cls=instance.__class__.__name__,
+                attr=related_name, cls=instance.__class__.__name__,
             )
         )
     return old_reverse_foreignkey_descriptor_get(self, instance, cls)
+
+
+old_manytomany_descriptor_get = ManyToManyDescriptor.__get__
+
+
+# noinspection PyProtectedMember
+def new_manytomany_descriptor_get(self, instance, cls=None):
+    # type: (ManyToManyDescriptor, Model, None) -> Any
+    if instance is None:
+        return self
+
+    if self.reverse is True:
+        related_name = self.field.remote_field.get_cache_name()
+    else:
+        related_name = self.field.get_cache_name()
+
+    if not hasattr(instance, "_prefetched_objects_cache"):
+        raise MissingRelationField(
+            "Access to '{attr}' ManyToMany manager attribute on {cls} was prevented because it was not selected; probably missing from prefetch_related()".format(
+                attr=related_name, cls=instance.__class__.__name__,
+            )
+        )
+    elif (
+        instance._prefetched_objects_cache
+        and related_name not in instance._prefetched_objects_cache
+    ):
+        raise MissingRelationField(
+            "Access to '{attr}' ManyToMany manager attribute on {cls} was prevented because it was not part of the prefetch_related() selection used".format(
+                attr=related_name, cls=instance.__class__.__name__,
+            )
+        )
+    return old_manytomany_descriptor_get(self, instance, cls)
 
 
 # This is when you do "mymodel.myfield" where "myfield" is a ForeignKey
@@ -236,6 +267,7 @@ def patch(invalid_locals, invalid_relations):
     patched_reverse_onetone = getattr(ReverseOneToOneDescriptor, "_shouty", False)
     patched_reverse_manytoone = getattr(ReverseManyToOneDescriptor, "_shouty", False)
     patched_manytoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
+    patched_manytomany = getattr(ManyToManyDescriptor, "_shouty", False)
     if invalid_relations is True:
         if patched_reverse_onetone is False:
             ReverseOneToOneDescriptor.__get__ = new_reverse_onetoone_descriptor_get
@@ -243,6 +275,8 @@ def patch(invalid_locals, invalid_relations):
             ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
         if patched_manytoone is False:
             ForwardManyToOneDescriptor.get_object = new_foreignkey_descriptor_get_object
+        if patched_manytomany is False:
+            ManyToManyDescriptor.__get__ = new_manytomany_descriptor_get
     return True
 
 
@@ -289,7 +323,7 @@ if __name__ == "__main__":
 
     settings.configure(
         DATABASES={
-            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:",}
+            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
         },
         INSTALLED_APPS=(
             "django.contrib.contenttypes",
@@ -300,6 +334,7 @@ if __name__ == "__main__":
     django.setup()
     from django.contrib.auth.models import User, Permission
     from django.contrib.contenttypes.models import ContentType
+    from django import forms
 
     # noinspection PyStatementEffect
     class LocalFieldsTestCase(TestCase):  # type: ignore
@@ -349,19 +384,26 @@ if __name__ == "__main__":
 
         def test_with_annotation_virtual_field(self):
             # type: () -> None
-            from django.db.models import Value, BooleanField
+            from django.db.models import Value, F, BooleanField
 
             with self.assertNumQueries(1):
-                obj = User.objects.annotate(
-                    testing=Value(True, output_field=BooleanField())
-                ).get(
-                    pk=self.instance.pk
+                obj = (
+                    User.objects.annotate(
+                        testing=Value(True, output_field=BooleanField()),
+                        testing_aliasing=F("first_name"),
+                    )
+                    .only("pk", "first_name")
+                    .get(pk=self.instance.pk)
                 )  # type: User
                 obj.pk
                 obj.id
                 obj.first_name
                 # noinspection PyUnresolvedReferences
-                obj.testing
+                self.assertTrue(obj.testing)
+                # noinspection PyUnresolvedReferences
+                self.assertEqual(obj.testing_aliasing, obj.first_name)
+                with self.assertRaises(self.MissingLocalField):
+                    obj.last_name
 
     # noinspection PyStatementEffect
     class NormalRelationFieldsTestCase(TestCase):  # type: ignore
@@ -444,6 +486,72 @@ if __name__ == "__main__":
                 obj.model
                 set(obj.permission_set.all())
 
+    class FormTestCase(TestCase):  # type: ignore
+        def setUp(self):
+            # type: () -> None
+            # Have to import the exceptions here to avoid __main__.ExceptionCls
+            # not being the same as shoutyorm.ExceptionCls, otherwise the test
+            # cases have to be outside the __main__ block.
+            # noinspection PyUnresolvedReferences
+            from shoutyorm import MissingRelationField, MissingLocalField
+
+            self.MissingLocalField = MissingLocalField
+            self.MissingRelationField = MissingRelationField
+
+        def test_foreignkey_in_form(self):
+            # type: () -> None
+            """
+            Prove that the patch doesn't affect modelform generation.
+            :return:
+            """
+
+            class PermissionForm(forms.ModelForm):  # type: ignore
+                class Meta:
+                    model = Permission
+                    fields = "__all__"
+
+            with self.assertNumQueries(1):
+                obj = Permission.objects.all()[0]  # type: Permission
+            with self.assertNumQueries(3):
+                form = PermissionForm(
+                    data={
+                        "name": obj.name,
+                        "content_type": obj.content_type_id,
+                        "codename": obj.codename,
+                    },
+                    instance=obj,
+                )
+                form.is_valid()
+                self.assertEqual(form.errors, {})
+            with self.assertNumQueries(1):
+                form.save()
+
+        def test_manytomany_in_form(self):
+            # type: () -> None
+            """
+            Prove that modelform generation IS effected on a model's local
+            manytomany field.
+            :return:
+            """
+            instance = User.objects.create()
+
+            class UserForm(forms.ModelForm):  # type: ignore
+                class Meta:
+                    model = User
+                    fields = "__all__"
+
+            with self.assertNumQueries(1):
+                obj = User.objects.only("pk", "first_name").get(pk=instance.pk)
+                with self.assertRaises(self.MissingLocalField):
+                    UserForm(data=None, instance=obj)
+            with self.assertNumQueries(1):
+                obj = User.objects.get(pk=instance.pk)
+                with self.assertRaisesMessage(
+                    self.MissingRelationField,
+                    "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                ):
+                    UserForm(data=None, instance=obj)
+
     test_runner = DiscoverRunner(interactive=False,)
     failures = test_runner.run_tests(
         test_labels=(),
@@ -453,5 +561,6 @@ if __name__ == "__main__":
             test_runner.test_loader.loadTestsFromTestCase(
                 ReverseRelationFieldsTestCase
             ),
+            test_runner.test_loader.loadTestsFromTestCase(FormTestCase),
         ),
     )
