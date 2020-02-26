@@ -3,6 +3,9 @@ from __future__ import absolute_import, unicode_literals
 
 import logging
 
+from django.core.exceptions import ValidationError, FieldDoesNotExist
+from django.db.models.base import ModelState
+from django.db.models.query import ModelIterable, QuerySet
 from django.test import TestCase
 
 try:
@@ -13,7 +16,12 @@ except ImportError:
 
 from django.apps import AppConfig
 from django.conf import settings
-from django.db.models import Model
+from django.db.models import (
+    Model,
+    ForeignKey,
+    OneToOneField,
+    ManyToManyField,
+)
 
 # noinspection PyUnresolvedReferences
 from django.db.models.fields.related_descriptors import (
@@ -61,6 +69,37 @@ __all__ = [
 ]
 
 
+old_queryset_fetch_all = QuerySet._fetch_all
+
+
+def new_queryset_fetch_all(self):
+    # type: (QuerySet) -> None
+    old_queryset_fetch_all(self)
+
+    if issubclass(self._iterable_class, ModelIterable):
+        items = []
+        for obj in self._result_cache:
+            obj._shouty_prefetch_done = self._prefetch_done
+            obj._shouty_prefetch_related_lookups = self._prefetch_related_lookups
+            items.append(obj)
+        self._result_cache = items
+
+
+old_model_setattr = Model.__setattr__
+
+
+def new_model_setattr(self, attr, value):
+    # fieldnames = frozenset(
+    #     x.attname for x in old_model_getattribute(self, "_meta").fields
+    # )
+    # if attr in fieldnames:
+    #     try:
+    #         self._meta.get_field(attr).to_python(value)
+    #     except ValidationError:
+    #         pass
+    return old_model_setattr(self, attr, value)
+
+
 # This is when you try an access a local field on a model.
 old_model_getattribute = Model.__getattribute__
 
@@ -75,18 +114,85 @@ def new_model_getattribute(self, name):
     class instance's secret dict, it's presumably been deselected via
     `.only()` or `.defer()` on the QuerySet.
     """
-    fieldnames = frozenset(
-        x.attname for x in old_model_getattribute(self, "_meta").fields
-    )
-    values = frozenset(old_model_getattribute(self, "__dict__"))
-    if name in fieldnames and name not in values:
+
+    # Allow all dunder methodlike things
+    if name[0:2] == "__" and name[-2:] == "__":
+        return old_model_getattribute(self, name)
+    elif name[0] == "_":
+        return old_model_getattribute(self, name)
+
+    old_dict = old_model_getattribute(self, "__dict__")
+    model_state = old_dict.get("_state", None)  # type: ModelState
+    # Currently trying to add/save/persist an object, all bets are off...
+    if model_state is not None and model_state.adding is True:
+        return old_model_getattribute(self, name)
+
+    opts = old_model_getattribute(self, "_meta")
+    field_attnames = frozenset(x.attname for x in opts.fields)
+    values = frozenset(old_dict)
+    if name in field_attnames and name not in values:
         cls_name = old_model_getattribute(self, "__class__").__name__
         raise MissingLocalField(
             "Access to '{attr}' attribute on {cls} was prevented because it was not selected; probably defer() or only() were used.".format(
                 attr=name, cls=cls_name,
             )
         )
+    #
+    # field_names = frozenset(x.name for x in opts.fields)
+    # # all_fields = field_attnames | field_names
+    # # These are probably from select_related
+    # fields_cache = {}  # type: dict
+    # if model_state is not None:
+    #     fields_cache = model_state.fields_cache
+    #
+    # # Probably select_related or prefetch_related was used on a model
+    # # with a ForeignKey defined on it.
+    # if name in fields_cache:
+    #     return old_model_getattribute(self, name)
+    #
+    # try:
+    #     field = opts.get_field(name)
+    # except FieldDoesNotExist:
+    #     pass
+    # else:
+    #     if issubclass(field.__class__, (ForeignKey, OneToOneField, ManyToManyField)):
+    #         cls_name = old_model_getattribute(self, "__class__").__name__
+    #         if (
+    #             hasattr(self, "_prefetched_objects_cache")
+    #             and name not in self._prefetched_objects_cache
+    #         ):
+    #             raise MissingRelationField(
+    #                 "Access to '{attr}' attribute on {cls} was prevented because it was not selected; probably missing from prefetch_related() or select_related()".format(
+    #                     attr=name, cls=cls_name,
+    #                 )
+    #             )
+
+    # elif hasattr(self, "_prefetched_objects_cache"):
+    #     pass
+    # if name in field_names and name not in values:
+    #     if name in cached_related:
+    #
+
+    # if name == "content_type":
+    #     value = old_dict["_state"].fields_cache
+    #     import pdb
+    #
+    #     pdb.set_trace()
     return old_model_getattribute(self, name)
+
+
+# old_modeliterable_iter = ModelIterable.__iter__
+#
+#
+# def new_modeliterable_iter(self):
+#     # type: (ModelIterable)-> None
+#     prefetch_done = self.queryset._prefetch_done
+#     prefetched = self.queryset._prefetch_related_lookups
+#     objs = old_modeliterable_iter(self)
+#     for obj in objs:
+#         obj._shouty_prefetch_done = prefetch_done
+#         obj._shouty_prefetch_related_lookups = prefetched
+#         yield obj
 
 
 # This is when you do "mymodel.myfield" where "myfield" is a OneToOneField
@@ -199,6 +305,24 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
         related_name = self.field.remote_field.get_cache_name()
     else:
         related_name = self.field.get_cache_name()
+    #
+    # if related_name == "user_permissions":
+    #     import pdb
+    #
+    #     pdb.set_trace()
+
+    manager = old_manytomany_descriptor_get(self, instance, cls)
+    # manager_old_get_queryset = manager.get_queryset
+    #
+    # def get_queryset(manager_self):
+    #     print(related_name)
+    #     results = manager_old_get_queryset()
+    #     import pdb
+    #
+    #     pdb.set_trace()
+    #     return results
+    #
+    # manager.get_queryset = get_queryset.__get__(manager)
 
     if not hasattr(instance, "_prefetched_objects_cache"):
         raise MissingRelationField(
@@ -207,15 +331,32 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
             )
         )
     elif (
+        hasattr(instance, "_shouty_prefetch_related_lookups")
+        and related_name not in instance._shouty_prefetch_related_lookups
+    ):
+        print(instance._shouty_prefetch_done, instance._shouty_prefetch_related_lookups)
+        raise MissingRelationField(
+            "Access to '{attr}' ManyToMany manager attribute on {cls} was prevented because it was not part of the prefetch_related() selection detected".format(
+                attr=related_name, cls=instance.__class__.__name__,
+            )
+        )
+    elif (
         instance._prefetched_objects_cache
         and related_name not in instance._prefetched_objects_cache
     ):
+        # import pdb
+        #
+        # pdb.set_trace()
+        # pass
+        # import pdb
+        #
+        # pdb.set_trace()
         raise MissingRelationField(
             "Access to '{attr}' ManyToMany manager attribute on {cls} was prevented because it was not part of the prefetch_related() selection used".format(
                 attr=related_name, cls=instance.__class__.__name__,
             )
         )
-    return old_manytomany_descriptor_get(self, instance, cls)
+    return manager
 
 
 # This is when you do "mymodel.myfield" where "myfield" is a ForeignKey
@@ -242,8 +383,8 @@ def new_foreignkey_descriptor_get_object(self, instance):
     )
 
 
-def patch(invalid_locals, invalid_relations):
-    # type: (bool, bool) -> bool
+def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
+    # type: (bool, bool, bool) -> bool
     """
     if invalid_locals is True, accessing fields which have been
     deferred via `.only()` and `.defer()` at the QuerySet level will error loudly.
@@ -251,10 +392,9 @@ def patch(invalid_locals, invalid_relations):
     if invalid_relations is True, accessing OneToOnes which have not
     been `.select_related()` at the QuerySet level will error loudly.
 
-    if invalid_relations is True, accessing foreignkeys from the "other"
+    if invalid_reverse_relations is True, accessing foreignkeys from the "other"
     side (that is, via the reverse relation manager) which have not
     been `.prefetch_related()` at the QuerySet level will error loudly.
-
 
     if invalid_relations is turned on, accessing local foreignkeys
     which have not been `prefetch_related()` or `select_related()` at the queryset
@@ -264,19 +404,28 @@ def patch(invalid_locals, invalid_relations):
     if invalid_locals is True:
         if patched_getattribute is False:
             Model.__getattribute__ = new_model_getattribute
-    patched_reverse_onetone = getattr(ReverseOneToOneDescriptor, "_shouty", False)
-    patched_reverse_manytoone = getattr(ReverseManyToOneDescriptor, "_shouty", False)
+            Model.__setattr__ = new_model_setattr
+
+    # ModelIterable.__iter__ = new_modeliterable_iter
+
     patched_manytoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
     patched_manytomany = getattr(ManyToManyDescriptor, "_shouty", False)
     if invalid_relations is True:
-        if patched_reverse_onetone is False:
-            ReverseOneToOneDescriptor.__get__ = new_reverse_onetoone_descriptor_get
-        if patched_reverse_manytoone is False:
-            ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
         if patched_manytoone is False:
             ForwardManyToOneDescriptor.get_object = new_foreignkey_descriptor_get_object
         if patched_manytomany is False:
             ManyToManyDescriptor.__get__ = new_manytomany_descriptor_get
+
+    patched_reverse_onetone = getattr(ReverseOneToOneDescriptor, "_shouty", False)
+    patched_reverse_manytoone = getattr(ReverseManyToOneDescriptor, "_shouty", False)
+
+    if invalid_reverse_relations is True:
+        if patched_reverse_onetone is False:
+            ReverseOneToOneDescriptor.__get__ = new_reverse_onetoone_descriptor_get
+        if patched_reverse_manytoone is False:
+            ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
+
+    QuerySet._fetch_all = new_queryset_fetch_all
     return True
 
 
@@ -291,7 +440,7 @@ class Shout(AppConfig):  # type: ignore
     if SHOUTY_RELATION_FIELDS is turned on, accessing OneToOnes which have not
     been `.select_related()` at the QuerySet level will error loudly.
 
-    if SHOUTY_RELATION_FIELDS is turned on, accessing foreignkeys from the "other"
+    if SHOUTY_RELATION_REVERSE_FIELDS is turned on, accessing foreignkeys from the "other"
     side (that is, via the reverse relation manager) which have not
     been `.prefetch_related()` at the QuerySet level will error loudly.
 
@@ -309,6 +458,9 @@ class Shout(AppConfig):  # type: ignore
         return patch(
             invalid_locals=getattr(settings, "SHOUTY_LOCAL_FIELDS", True),
             invalid_relations=getattr(settings, "SHOUTY_RELATION_FIELDS", True),
+            invalid_reverse_relations=getattr(
+                settings, "SHOUTY_RELATION_REVERSE_FIELDS", True
+            ),
         )
 
 
@@ -332,7 +484,7 @@ if __name__ == "__main__":
         ),
     )
     django.setup()
-    from django.contrib.auth.models import User, Permission
+    from django.contrib.auth.models import User, Group, Permission
     from django.contrib.contenttypes.models import ContentType
     from django import forms
 
@@ -452,6 +604,32 @@ if __name__ == "__main__":
                 obj.content_type_id
                 obj.content_type.pk
 
+        def test_accesing_multiple_manytomanys(self):
+            """
+            This poses a big problem.
+            """
+            instance = User.objects.create()
+            group = Group.objects.create()
+            i = User.objects.prefetch_related("groups").get()
+            i.groups.add(group)
+            with self.assertNumQueries(2):
+                User.objects.prefetch_related("groups").get(pk=instance.pk)
+            with self.assertNumQueries(2):
+                User.objects.prefetch_related("user_permissions").get(pk=instance.pk)
+            with self.assertNumQueries(3):
+                obj = User.objects.prefetch_related(
+                    "groups", "groups__permissions"
+                ).get(pk=instance.pk)
+                # tuple(obj.groups.all())
+                # tuple(obj.groups.all()[0].permissions.all())
+            with self.assertNumQueries(3):
+                obj = User.objects.prefetch_related("groups").get(pk=instance.pk)
+                with self.assertRaisesMessage(
+                    self.MissingRelationField,
+                    "Access to 'content_type' attribute on Permission was prevented because it was not selected; probably missing from prefetch_related() or select_related()",
+                ):
+                    tuple(obj.user_permissions.all())
+
     # noinspection PyStatementEffect
     class ReverseRelationFieldsTestCase(TestCase):  # type: ignore
         def setUp(self):
@@ -551,6 +729,10 @@ if __name__ == "__main__":
                     "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
                 ):
                     UserForm(data=None, instance=obj)
+            with self.assertNumQueries(2):
+                obj = User.objects.prefetch_related("groups").get(pk=instance.pk)
+
+                # UserForm(data=None, instance=obj)
 
     test_runner = DiscoverRunner(interactive=False,)
     failures = test_runner.run_tests(
