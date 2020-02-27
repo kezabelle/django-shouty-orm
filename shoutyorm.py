@@ -10,7 +10,7 @@ from django.test import TestCase
 
 try:
     # noinspection PyUnresolvedReferences
-    from typing import Text, Any
+    from typing import Text, Any, Dict
 except ImportError:
     pass
 
@@ -81,23 +81,24 @@ def new_queryset_fetch_all(self):
         for obj in self._result_cache:
             obj._shouty_prefetch_done = self._prefetch_done
             obj._shouty_prefetch_related_lookups = self._prefetch_related_lookups
+            obj._shouty_sealed = True
             items.append(obj)
         self._result_cache = items
 
 
-old_model_setattr = Model.__setattr__
-
-
-def new_model_setattr(self, attr, value):
-    # fieldnames = frozenset(
-    #     x.attname for x in old_model_getattribute(self, "_meta").fields
-    # )
-    # if attr in fieldnames:
-    #     try:
-    #         self._meta.get_field(attr).to_python(value)
-    #     except ValidationError:
-    #         pass
-    return old_model_setattr(self, attr, value)
+# old_model_setattr = Model.__setattr__
+#
+#
+# def new_model_setattr(self, attr, value):
+#     # fieldnames = frozenset(
+#     #     x.attname for x in old_model_getattribute(self, "_meta").fields
+#     # )
+#     # if attr in fieldnames:
+#     #     try:
+#     #         self._meta.get_field(attr).to_python(value)
+#     #     except ValidationError:
+#     #         pass
+#     return old_model_setattr(self, attr, value)
 
 
 # This is when you try an access a local field on a model.
@@ -118,55 +119,91 @@ def new_model_getattribute(self, name):
     # Allow all dunder methodlike things
     if name[0:2] == "__" and name[-2:] == "__":
         return old_model_getattribute(self, name)
+    # Allow any private methods, because the chances of a valid field being
+    # underscore prefixed are minimal, right?
     elif name[0] == "_":
         return old_model_getattribute(self, name)
 
-    old_dict = old_model_getattribute(self, "__dict__")
+    old_dict = old_model_getattribute(self, "__dict__")  # type: Dict[str, Any]
+
+    if "_shouty_sealed" not in old_dict:
+        return old_model_getattribute(self, name)
+
     model_state = old_dict.get("_state", None)  # type: ModelState
     # Currently trying to add/save/persist an object, all bets are off...
     if model_state is not None and model_state.adding is True:
         return old_model_getattribute(self, name)
 
+    # These are probably from select_related
+    fields_cache = {}  # type: dict
+    if model_state is not None:
+        fields_cache = model_state.fields_cache
+
     opts = old_model_getattribute(self, "_meta")
     field_attnames = frozenset(x.attname for x in opts.fields)
     values = frozenset(old_dict)
-    if name in field_attnames and name not in values:
-        cls_name = old_model_getattribute(self, "__class__").__name__
-        raise MissingLocalField(
-            "Access to '{attr}' attribute on {cls} was prevented because it was not selected; probably defer() or only() were used.".format(
-                attr=name, cls=cls_name,
-            )
-        )
+    # Normal field attribute names
+    if name in field_attnames and name in values:
+        return old_model_getattribute(self, name)
+        # cls_name = old_model_getattribute(self, "__class__").__name__
+        # raise MissingLocalField(
+        #     "Access to '{attr}' attribute on {cls} was prevented because it was not selected; probably defer() or only() were used.".format(
+        #         attr=name, cls=cls_name,
+        #     )
+        # )
+    # Special casing pk, which isn't a field and maps over to id usually.
+    elif name == "pk" and opts.pk.attname in values:
+        return old_model_getattribute(self, name)
+    elif fields_cache and name in fields_cache:
+        return old_model_getattribute(self, name)
+    # Already fill in the __dict__ attr. May be a virtual field set by .annotate etc...
+    elif name in old_dict:
+        return old_model_getattribute(self, name)
+    # We've not yet finished all the prefetching at the root queryset, so let
+    # those trigger queries.
+    elif old_dict.get("_shouty_prefetch_done", False) is False:
+        return old_model_getattribute(self, name)
+    # We've used prefetch_related('groups') and can now let obj.groups.anything()
+    # be used.
+    elif (
+        "_prefetched_objects_cache" in old_dict
+        and name in old_dict["_prefetched_objects_cache"]
+    ):
+        return old_model_getattribute(self, name)
+
     #
     # field_names = frozenset(x.name for x in opts.fields)
     # # all_fields = field_attnames | field_names
-    # # These are probably from select_related
-    # fields_cache = {}  # type: dict
-    # if model_state is not None:
-    #     fields_cache = model_state.fields_cache
-    #
-    # # Probably select_related or prefetch_related was used on a model
-    # # with a ForeignKey defined on it.
-    # if name in fields_cache:
-    #     return old_model_getattribute(self, name)
-    #
+
+    # Probably select_related or prefetch_related was used on a model
+    # with a ForeignKey defined on it.
+
     # try:
     #     field = opts.get_field(name)
     # except FieldDoesNotExist:
     #     pass
     # else:
-    #     if issubclass(field.__class__, (ForeignKey, OneToOneField, ManyToManyField)):
-    #         cls_name = old_model_getattribute(self, "__class__").__name__
-    #         if (
-    #             hasattr(self, "_prefetched_objects_cache")
-    #             and name not in self._prefetched_objects_cache
-    #         ):
+    #     if issubclass(field.__class__, (ForeignKey, OneToOneField)):
+    #         if name in fields_cache:
+    #             return old_model_getattribute(self, name)
+    #         else:
+    #             cls_name = old_model_getattribute(self, "__class__").__name__
+    #             #         if (
+    #             #             hasattr(self, "_prefetched_objects_cache")
+    #             #             and name not in self._prefetched_objects_cache
+    #             #         ):
     #             raise MissingRelationField(
     #                 "Access to '{attr}' attribute on {cls} was prevented because it was not selected; probably missing from prefetch_related() or select_related()".format(
     #                     attr=name, cls=cls_name,
     #                 )
     #             )
-
+    #
+    cls_name = old_model_getattribute(self, "__class__").__name__
+    raise MissingLocalField(
+        "Access to '{attr}' attribute on {cls} was prevented because it was not selected; probably defer() or only() were used.".format(
+            attr=name, cls=cls_name,
+        )
+    )
     # elif hasattr(self, "_prefetched_objects_cache"):
     #     pass
     # if name in field_names and name not in values:
@@ -404,26 +441,26 @@ def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
     if invalid_locals is True:
         if patched_getattribute is False:
             Model.__getattribute__ = new_model_getattribute
-            Model.__setattr__ = new_model_setattr
-
-    # ModelIterable.__iter__ = new_modeliterable_iter
-
-    patched_manytoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
-    patched_manytomany = getattr(ManyToManyDescriptor, "_shouty", False)
-    if invalid_relations is True:
-        if patched_manytoone is False:
-            ForwardManyToOneDescriptor.get_object = new_foreignkey_descriptor_get_object
-        if patched_manytomany is False:
-            ManyToManyDescriptor.__get__ = new_manytomany_descriptor_get
-
-    patched_reverse_onetone = getattr(ReverseOneToOneDescriptor, "_shouty", False)
-    patched_reverse_manytoone = getattr(ReverseManyToOneDescriptor, "_shouty", False)
-
-    if invalid_reverse_relations is True:
-        if patched_reverse_onetone is False:
-            ReverseOneToOneDescriptor.__get__ = new_reverse_onetoone_descriptor_get
-        if patched_reverse_manytoone is False:
-            ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
+            # Model.__setattr__ = new_model_setattr
+    #
+    # # ModelIterable.__iter__ = new_modeliterable_iter
+    #
+    # patched_manytoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
+    # patched_manytomany = getattr(ManyToManyDescriptor, "_shouty", False)
+    # if invalid_relations is True:
+    #     if patched_manytoone is False:
+    #         ForwardManyToOneDescriptor.get_object = new_foreignkey_descriptor_get_object
+    #     if patched_manytomany is False:
+    #         ManyToManyDescriptor.__get__ = new_manytomany_descriptor_get
+    #
+    # patched_reverse_onetone = getattr(ReverseOneToOneDescriptor, "_shouty", False)
+    # patched_reverse_manytoone = getattr(ReverseManyToOneDescriptor, "_shouty", False)
+    #
+    # if invalid_reverse_relations is True:
+    #     if patched_reverse_onetone is False:
+    #         ReverseOneToOneDescriptor.__get__ = new_reverse_onetoone_descriptor_get
+    #     if patched_reverse_manytoone is False:
+    #         ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
 
     QuerySet._fetch_all = new_queryset_fetch_all
     return True
@@ -740,9 +777,9 @@ if __name__ == "__main__":
         extra_tests=(
             test_runner.test_loader.loadTestsFromTestCase(LocalFieldsTestCase),
             test_runner.test_loader.loadTestsFromTestCase(NormalRelationFieldsTestCase),
-            test_runner.test_loader.loadTestsFromTestCase(
-                ReverseRelationFieldsTestCase
-            ),
-            test_runner.test_loader.loadTestsFromTestCase(FormTestCase),
+            # test_runner.test_loader.loadTestsFromTestCase(
+            #     ReverseRelationFieldsTestCase
+            # ),
+            # test_runner.test_loader.loadTestsFromTestCase(FormTestCase),
         ),
     )
