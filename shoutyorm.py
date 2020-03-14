@@ -16,7 +16,10 @@ from django.apps import AppConfig
 from django.conf import settings
 from django.db.models import Model
 
-from django.db.models.fields.related_descriptors import ReverseManyToOneDescriptor
+from django.db.models.fields.related_descriptors import (
+    ReverseManyToOneDescriptor,
+    ManyToManyDescriptor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,7 @@ class MissingReverseRelationField(MissingRelationField):
 _TMPL_MISSING_LOCAL = "Access to '{attr}' attribute on {cls} was prevented because it was not selected; probably defer() or only() were used."
 _TMPL_MISSING_ANY_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented because it was not selected; probably missing from prefetch_related()"
 _TMPL_MISSING_SPECIFIC_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented because it was not part of the prefetch_related() selection used"
+_TMPL_MISSING_M2M_PREFETCH = "Access to '{attr}' ManyToMany manager attribute on {cls} was prevented because it was not selected; probably missing from prefetch_related()"
 
 __all__ = [
     "get_version",
@@ -74,6 +78,13 @@ old_deferredattribute_check_parent_chain = DeferredAttribute._check_parent_chain
 # the get_prefetch_queryset() implementations and I don't know the ramifications
 # of doing so, so instead we're going to proxy the "public" API.
 old_reverse_foreignkey_descriptor_get = ReverseManyToOneDescriptor.__get__
+
+
+# This is used when you have mymodel.m2m.all() where m2m is a ManyToManyField
+# because of the way this descriptor's related manager is set up, in combination
+# with the way prefetching works (get_prefetch_queryset, get the manager, get_queryset, etc)
+# This is the best entry point I could find.
+old_manytomany_descriptor_get = ManyToManyDescriptor.__get__
 
 
 def new_deferredattribute_check_parent_chain(self, instance, name=None):
@@ -151,6 +162,39 @@ def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
     return manager
 
 
+def new_manytomany_descriptor_get(self, instance, cls=None):
+    # type: (ManyToManyDescriptor, Model, None) -> Any
+    if instance is None:
+        return self
+
+    if self.reverse is True:
+        related_name = self.field.remote_field.get_cache_name()
+    else:
+        related_name = self.field.get_cache_name()
+
+    manager = old_manytomany_descriptor_get(self, instance, cls)
+    prefetch_name = manager.prefetch_cache_name
+
+    if not hasattr(instance, "_prefetched_objects_cache"):
+        return MissingPrefetchRelatedManager(
+            manager,
+            error_message=_TMPL_MISSING_M2M_PREFETCH.format(
+                attr=related_name, cls=instance.__class__.__name__,
+            ),
+        )
+    elif (
+        instance._prefetched_objects_cache
+        and prefetch_name not in instance._prefetched_objects_cache
+    ):
+        return MissingPrefetchRelatedManager(
+            manager,
+            error_message=_TMPL_MISSING_M2M_PREFETCH.format(
+                attr=related_name, cls=instance.__class__.__name__,
+            ),
+        )
+    return manager
+
+
 def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
     # type: (bool, bool, bool) -> bool
     """
@@ -174,6 +218,11 @@ def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
             DeferredAttribute._check_parent_chain = (
                 new_deferredattribute_check_parent_chain
             )
+
+    if invalid_relations is True:
+        patched_manytomany = getattr(ManyToManyDescriptor, "_shouty", False)
+        if patched_manytomany is False:
+            ManyToManyDescriptor.__get__ = new_manytomany_descriptor_get
 
     if invalid_reverse_relations is True:
         patched_reverse_manytoone = getattr(
@@ -264,6 +313,7 @@ if __name__ == "__main__":
         SHOUTY_RELATION_REVERSE_FIELDS=True,
     )
     django.setup()
+    from django.db.models import Prefetch
     from django.contrib.auth.models import User, Group, Permission
     from django.contrib.contenttypes.models import ContentType
     from django import forms
@@ -501,6 +551,129 @@ if __name__ == "__main__":
                 self.assertIsNotNone(group.user_set.first())
                 self.assertIsNotNone(group.user_set.last())
 
+    class MostlyM2MPrefetchRelatedTestCase(TestCase):
+        def setUp(self):
+            # type: () -> None
+            # Have to import the exceptions here to avoid __main__.ExceptionCls
+            # not being the same as shoutyorm.ExceptionCls, otherwise the test
+            # cases have to be outside the __main__ block.
+            # noinspection PyUnresolvedReferences
+            from shoutyorm import MissingRelationField
+
+            self.MissingRelationField = MissingRelationField
+            self.user = User.objects.create()
+
+        def test_accessing_nonprefetched_m2m_works_when_trying_to_add(self):
+            """
+            There are certain methods you want to access on an m2m which disregard
+            the prefetch cache and should specifically not error.
+            """
+            with self.assertNumQueries(1):
+                i = User.objects.get(pk=self.user.pk)
+            with self.assertNumQueries(2):
+                i.groups.add(Group.objects.create(name="test"))
+
+        def test_accessing_nonprefetched_m2m_fails_when_accessing_all(self):
+            """
+            Normal use case - failure to prefetch should error loudly
+            """
+            with self.assertNumQueries(1):
+                i = User.objects.get(pk=self.user.pk)
+                with self.assertRaisesMessage(
+                    self.MissingRelationField,
+                    "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                ):
+                    i.groups.all()
+                with self.assertRaisesMessage(
+                    self.MissingRelationField,
+                    "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                ):
+                    i.user_permissions.all()
+
+        def test_accessing_nonprefetched_nested_relations_fails(self):
+            """
+            It's OK to access groups because we prefetched it, but accessing
+            the group's permissions is NOT ok.
+            """
+            self.user.groups.add(Group.objects.create(name="test"))
+            with self.assertNumQueries(2):
+                i = User.objects.prefetch_related("groups").get(pk=self.user.pk)
+            with self.assertNumQueries(0):
+                tuple(i.groups.all())
+                with self.assertRaisesMessage(
+                    self.MissingRelationField,
+                    "Access to 'permissions' ManyToMany manager attribute on Group was prevented because it was not selected; probably missing from prefetch_related()",
+                ):
+                    i.groups.all()[0].permissions.all()
+
+        def test_accessing_prefetched_nested_relations_is_ok(self):
+            """
+            If we've pre-selected groups and the permissions on those groups,
+            it should be fine to access any permissions in any index of the
+            groups queryset.
+            """
+            self.user.groups.add(Group.objects.create(name="test"))
+            with self.assertNumQueries(3):
+                i = User.objects.prefetch_related("groups", "groups__permissions").get(
+                    pk=self.user.pk
+                )
+            with self.assertNumQueries(0):
+                tuple(i.groups.all())
+                tuple(i.groups.all()[0].permissions.all())
+                with self.assertRaisesMessage(
+                    self.MissingRelationField,
+                    "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                ):
+                    tuple(i.user_permissions.all())
+
+        def test_accessing_multiple_prefetched_nonnested_relations_is_ok(self):
+            """
+            Accessing more than 1 prefetch at the same level is OK.
+            This was part of the difficulty in figuring this out, because by the
+            time you get to the second prefetch selection you need to NOT prevent
+            access to the queryset until ALL prefetching looks to have finished.
+            """
+            self.user.groups.add(Group.objects.create(name="test"))
+            with self.assertNumQueries(3):
+                i = User.objects.prefetch_related("groups", "user_permissions").get(
+                    pk=self.user.pk
+                )
+            with self.assertNumQueries(0):
+                tuple(i.groups.all())
+                tuple(i.user_permissions.all())
+
+        def test_accessing_relations_involving_prefetch_objects_is_ok(self):
+            """
+            Make sure using a Prefetch object doesn't throw a spanner in the works.
+            """
+            self.user.groups.add(Group.objects.create(name="test"))
+            with self.assertNumQueries(4):
+                i = User.objects.prefetch_related(
+                    Prefetch("groups", Group.objects.all()),
+                    "groups__permissions",
+                    "user_permissions",
+                ).get(pk=self.user.pk)
+            with self.assertNumQueries(0):
+                tuple(i.groups.all())
+                tuple(i.user_permissions.all())
+                tuple(i.groups.all()[0].permissions.all())
+
+        def test_accessing_relations_involving_prefetch_objects_is_ok2(self):
+            """
+            Make sure using a Prefetch object doesn't throw a spanner in the works.
+            """
+            self.user.groups.add(Group.objects.create(name="test"))
+            with self.assertNumQueries(4):
+                i = User.objects.prefetch_related(
+                    "groups",
+                    Prefetch("groups__permissions", Permission.objects.all()),
+                    "user_permissions",
+                ).get(pk=self.user.pk)
+            with self.assertNumQueries(0):
+                tuple(i.groups.all())
+                tuple(i.user_permissions.all())
+                tuple(i.groups.all()[0].permissions.all())
+
     class FormTestCase(TestCase):  # type: ignore
         """
         Auto generated modelforms are super common, so let's
@@ -562,12 +735,56 @@ if __name__ == "__main__":
                 ):
                     UserForm(data=None, instance=obj)
 
+        def test_manytomany_in_form_is_ok_if_prefetched(self):
+            # type: () -> None
+            """
+            Prove that modelform generation IS effected on a model's local
+            manytomany field.
+            """
+            instance = User.objects.create()
+
+            class UserForm(forms.ModelForm):  # type: ignore
+                class Meta:
+                    model = User
+                    fields = "__all__"
+
+            with self.assertNumQueries(3):
+                obj = User.objects.prefetch_related("groups", "user_permissions").get(
+                    pk=instance.pk
+                )
+            with self.assertNumQueries(0):
+                UserForm(data=None, instance=obj)
+
+        def test_manytomany_in_form_fails_if_not_prefetched(self):
+            # type: () -> None
+            """
+            Prove that modelform generation IS effected on a model's local
+            manytomany field.
+            """
+            instance = User.objects.create()
+
+            class UserForm(forms.ModelForm):  # type: ignore
+                class Meta:
+                    model = User
+                    fields = "__all__"
+
+            with self.assertNumQueries(1):
+                obj = User.objects.get(pk=instance.pk)
+                with self.assertRaisesMessage(
+                    self.MissingRelationField,
+                    "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                ):
+                    UserForm(data=None, instance=obj)
+
     test_runner = DiscoverRunner(interactive=False, verbosity=2)
     failures = test_runner.run_tests(
         test_labels=(),
         extra_tests=(
             test_runner.test_loader.loadTestsFromTestCase(LocalFieldsTestCase),
             test_runner.test_loader.loadTestsFromTestCase(NormalRelationFieldsTestCase),
+            test_runner.test_loader.loadTestsFromTestCase(
+                MostlyM2MPrefetchRelatedTestCase
+            ),
             test_runner.test_loader.loadTestsFromTestCase(
                 ReverseRelationFieldsTestCase
             ),
