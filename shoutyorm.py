@@ -216,7 +216,10 @@ def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
     if instance is None:
         return self
 
-    related_name = self.field.remote_field.get_cache_name()
+    if DJANGO_VERSION[0:2] <= (1, 11):
+        related_name = self.field.remote_field.get_accessor_name()
+    else:
+        related_name = self.field.remote_field.get_cache_name()
     manager = old_reverse_foreignkey_descriptor_get(self, instance, cls)
 
     # noinspection PyProtectedMember
@@ -287,9 +290,15 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
         return self
 
     if self.reverse is True:
-        related_name = self.field.remote_field.get_cache_name()
+        if DJANGO_VERSION[0:2] <= (1, 11):
+            related_name = self.field.remote_field.get_accessor_name()
+        else:
+            related_name = self.field.remote_field.get_cache_name()
     else:
-        related_name = self.field.get_cache_name()
+        if DJANGO_VERSION[0:2] <= (1, 11):
+            related_name = self.field.name
+        else:
+            related_name = self.field.get_cache_name()
 
     manager = old_manytomany_descriptor_get(self, instance, cls)
     prefetch_name = manager.prefetch_cache_name
@@ -326,9 +335,13 @@ def new_foreignkey_descriptor_get_object(self, instance):
     this will be invoked when trying to access mymodel_instance.myfk
     without having either used prefetch_related() or select_related()
     """
+    if DJANGO_VERSION[0:2] <= (1, 11):
+        related_name = self.field.name
+    else:
+        related_name = self.field.get_cache_name()
     raise MissingRelationField(
         _TMPL_MISSING_LOCAL_FK.format(
-            attr=self.field.get_cache_name(), cls=instance.__class__.__name__,
+            attr=related_name, cls=instance.__class__.__name__,
         )
     )
 
