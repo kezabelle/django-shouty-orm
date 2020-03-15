@@ -683,14 +683,20 @@ if __name__ == "__main__":
                 user = User.objects.create(username="test")
             with self.assertNumQueries(1):
                 group.user_set.clear()
-            with self.assertNumQueries(1):
+            q = 1
+            if DJANGO_VERSION[0:2] < (3, 0):
+                q = 2
+            with self.assertNumQueries(q):
                 group.user_set.add(user)
             with self.assertNumQueries(1):
                 group.user_set.remove(user)
             with self.assertNumQueries(2):
                 self.assertIsNone(group.user_set.first())
                 self.assertIsNone(group.user_set.last())
-            with self.assertNumQueries(2):
+            q = 2
+            if DJANGO_VERSION[0:2] < (3, 0):
+                q = 3
+            with self.assertNumQueries(q):
                 group.user_set.set((user,))
             # Not sure why both of these are 0 queries? Neither uses the _result_cache
             # AFAIK, so surely they should always do one?
@@ -727,7 +733,10 @@ if __name__ == "__main__":
             """
             with self.assertNumQueries(1):
                 i = User.objects.get(pk=self.user.pk)
-            with self.assertNumQueries(2):
+            q = 2
+            if DJANGO_VERSION[0:2] < (3, 0):
+                q = 3
+            with self.assertNumQueries(q):
                 i.groups.add(Group.objects.create(name="test"))
 
         def test_accessing_nonprefetched_m2m_fails_when_accessing_all(self):
@@ -864,7 +873,10 @@ if __name__ == "__main__":
             """
             with self.assertNumQueries(1):
                 i = Group.objects.get(pk=self.group.pk)
-            with self.assertNumQueries(2):
+            q = 2
+            if DJANGO_VERSION[0:2] < (3, 0):
+                q = 3
+            with self.assertNumQueries(q):
                 i.user_set.add(User.objects.create())
 
         def test_accessing_nonprefetched_m2m_fails_when_accessing_all(self):
