@@ -472,6 +472,7 @@ if __name__ == "__main__":
     from django.contrib.auth.models import User, Group, Permission
     from django.contrib.contenttypes.models import ContentType
     from django import forms
+    from django.template import Template, Context
 
     # noinspection PyStatementEffect
     class LocalFieldsTestCase(TestCase):  # type: ignore
@@ -1161,6 +1162,99 @@ if __name__ == "__main__":
                 ):
                     UserForm(data=None, instance=obj)
 
+    class TemplateTestCase(TestCase):  # type: ignore
+        """
+        Got to check that the exceptions
+        """
+
+        def setUp(self):
+            # type: () -> None
+            from shoutyorm import MissingLocalField, MissingRelationField
+
+            self.MissingLocalField = MissingLocalField
+            self.MissingRelationField = MissingRelationField
+
+        def test_local(self):
+            # type: () -> None
+            u = User.objects.create(
+                first_name="test",
+                last_name="test",
+                username="testu",
+                email="test@test.com",
+            )
+            u = User.objects.only("pk", "first_name", "date_joined").get(pk=u.pk)
+            tmpl = Template(
+                """
+            {{ u.pk }}, {{ u.first_name }}, {{ u.date_joined }}, {{ u.last_name }}
+            """
+            )
+            with self.assertRaisesMessage(
+                self.MissingLocalField,
+                "Access to 'last_name' attribute on User was prevented because it was not selected; probably defer() or only() were used.",
+            ):
+                tmpl.render(Context({"u": u,}))
+
+        def test_local_foreignkey(self):
+            # type: () -> None
+            p = Permission.objects.all()[0]
+            tmpl = Template(
+                """
+            {{ p.pk }}, {{ p.codename }}, {{ p.content_type_id }}, {{ p.content_type.pk }}
+            """
+            )
+            with self.assertRaisesMessage(
+                self.MissingRelationField,
+                "Access to 'content_type' attribute on Permission was prevented because it was not selected; probably missing from prefetch_related() or select_related()",
+            ):
+                tmpl.render(Context({"p": p,}))
+
+        def test_reverse_foreignkey(self):
+            # type: () -> None
+            ct = ContentType.objects.all()[0]
+            tmpl = Template(
+                """
+            {{ ct.pk }}, {{ ct.app_label }}, {{ ct.model }}, {% for p in ct.permission_set.all %}{{ p }}{% endfor %}
+            """
+            )
+            with self.assertRaisesMessage(
+                self.MissingRelationField,
+                "Access to reverse manager 'permission_set' on ContentType was prevented because it was not selected; probably missing from prefetch_related()",
+            ):
+                tmpl.render(Context({"ct": ct,}))
+
+        def test_local_m2m(self):
+            # type: () -> None
+            u = User.objects.create(
+                first_name="test",
+                last_name="test",
+                username="testu",
+                email="test@test.com",
+            )
+            tmpl = Template(
+                """
+            {{ u.pk }}, {{ u.username }}, {% for g in u.groups.all %}{{ g }}{% endfor %}
+            """
+            )
+            with self.assertRaisesMessage(
+                self.MissingRelationField,
+                "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+            ):
+                tmpl.render(Context({"u": u,}))
+
+        def test_reverse_m2m(self):
+            # type: () -> None
+            g = Group.objects.create()
+            tmpl = Template(
+                """
+            {{ g.pk }}, {% for u in g.user_set.all %}{{ u }}{% endfor %}
+            """
+            )
+            with self.assertRaisesMessage(
+                self.MissingRelationField,
+                "Access to 'user_set' ManyToMany manager attribute on Group was prevented because it was not selected; probably missing from prefetch_related()",
+            ):
+                tmpl.render(Context({"g": g,}))
+
     class MyPyTestCase(TestCase):  # type: ignore
         def test_for_types(self):
             # type: () -> None
@@ -1194,6 +1288,7 @@ if __name__ == "__main__":
                 ReverseRelationFieldsTestCase
             ),
             test_runner.test_loader.loadTestsFromTestCase(FormTestCase),
+            test_runner.test_loader.loadTestsFromTestCase(TemplateTestCase),
             test_runner.test_loader.loadTestsFromTestCase(
                 ForwardManyToOneDescriptorTestCase
             ),
