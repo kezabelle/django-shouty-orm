@@ -42,9 +42,7 @@ setup(
     packages=[],
     py_modules=["shoutyorm"],
     include_package_data=True,
-    install_requires=[
-        "Django>=1.9",
-    ],
+    install_requires=["Django>=2.2", "wrapt>=1.11",],
     zip_safe=False,
     keywords=" ".join(KEYWORDS),
     license=LICENSE,

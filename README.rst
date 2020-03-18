@@ -64,6 +64,12 @@ Add ``shoutyorm`` or ``shoutyorm.Shout`` to your ``settings.INSTALLED_APPS``
 I'd certainly suggest that you should only enable it when ``DEBUG`` is ``True`` or
 during your test suite.
 
+Dependencies
+^^^^^^^^^^^^
+
+- Django 2.2+ (obviously)
+- `wrapt`_ 1.11+ (for proxying managers/querysets transparently)
+
 
 Optional configuration
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -121,3 +127,4 @@ It's `FreeBSD`_. There's should be a ``LICENSE`` file in the root of the reposit
 .. _django-eraserhead: https://github.com/dizballanze/django-eraserhead
 .. _nplusone: https://github.com/jmcarp/nplusone
 .. _django-shouty-templates: https://github.com/kezabelle/django-shouty-templates
+.. _wrapt: https://wrapt.readthedocs.io/en/latest/index.html
