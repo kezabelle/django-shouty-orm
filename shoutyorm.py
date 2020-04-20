@@ -362,12 +362,14 @@ def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
             DeferredAttribute._check_parent_chain = (
                 new_deferredattribute_check_parent_chain
             )
+            DeferredAttribute._shouty = True
 
     if invalid_relations is True:
 
         patched_manytoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
         if patched_manytoone is False:
             ForwardManyToOneDescriptor.get_object = new_foreignkey_descriptor_get_object
+            ForwardManyToOneDescriptor._shouty = True
 
         # patched_onetoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
         # ForwardOneToOneDescriptor
@@ -375,11 +377,13 @@ def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
         patched_manytomany = getattr(ManyToManyDescriptor, "_shouty", False)
         if patched_manytomany is False:
             ManyToManyDescriptor.__get__ = new_manytomany_descriptor_get
+            ManyToManyDescriptor._shouty = True
 
     if invalid_reverse_relations is True:
         patched_reverse_onetone = getattr(ReverseOneToOneDescriptor, "_shouty", False)
         if patched_reverse_onetone is False:
             ReverseOneToOneDescriptor.__get__ = new_reverse_onetoone_descriptor_get
+            ReverseOneToOneDescriptor._shouty = True
 
         patched_reverse_manytoone = getattr(
             ReverseManyToOneDescriptor, "_shouty", False
@@ -387,6 +391,7 @@ def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
 
         if patched_reverse_manytoone is False:
             ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
+            ReverseManyToOneDescriptor._shouty = True
 
     return True
 
