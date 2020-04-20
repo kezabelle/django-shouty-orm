@@ -101,12 +101,12 @@ class MissingReverseRelationField(MissingRelationField):
     pass
 
 
-_TMPL_MISSING_LOCAL = "Access to '{attr}' attribute on {cls} was prevented because it was not selected; probably defer() or only() were used."
-_TMPL_MISSING_ANY_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented because it was not selected; probably missing from prefetch_related()"
-_TMPL_MISSING_SPECIFIC_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented because it was not part of the prefetch_related() selection used"
-_TMPL_MISSING_M2M_PREFETCH = "Access to '{attr}' ManyToMany manager attribute on {cls} was prevented because it was not selected; probably missing from prefetch_related()"
-_TMPL_MISSING_LOCAL_FK = "Access to '{attr}' attribute on {cls} was prevented because it was not selected; probably missing from prefetch_related() or select_related()"
-_TMPL_MISSING_REVERSE_121 = "Access to '{attr}' relation attribute on {cls} was prevented because it was not selected; probably missing from select_related()"
+_TMPL_MISSING_LOCAL = "Access to '{attr}' attribute on {cls} was prevented because it was not selected.\nProbably defer() or only() were used."
+_TMPL_MISSING_ANY_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented because it was not selected.\nProbably missing from prefetch_related()"
+_TMPL_MISSING_SPECIFIC_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented.\nIt was not part of the prefetch_related() selection used"
+_TMPL_MISSING_M2M_PREFETCH = "Access to '{attr}' ManyToMany manager attribute on {cls} was prevented because it was not selected.\nProbably missing from prefetch_related()"
+_TMPL_MISSING_LOCAL_FK = "Access to '{attr}' attribute on {cls} was prevented because it was not selected.\nProbably missing from prefetch_related() or select_related()"
+_TMPL_MISSING_REVERSE_121 = "Access to '{attr}' relation attribute on {cls} was prevented because it was not selected.\nProbably missing from select_related()"
 
 __all__ = [
     "patch",
@@ -518,7 +518,7 @@ if __name__ == "__main__":
                 obj.id
                 with self.assertRaisesMessage(
                     self.MissingLocalField,
-                    "Access to 'first_name' attribute on User was prevented because it was not selected; probably defer() or only() were used.",
+                    "Access to 'first_name' attribute on User was prevented because it was not selected.\nProbably defer() or only() were used.",
                 ):
                     obj.first_name
 
@@ -534,7 +534,7 @@ if __name__ == "__main__":
                 obj.first_name
                 with self.assertRaisesMessage(
                     self.MissingLocalField,
-                    "Access to 'date_joined' attribute on User was prevented because it was not selected; probably defer() or only() were used.",
+                    "Access to 'date_joined' attribute on User was prevented because it was not selected.\nProbably defer() or only() were used.",
                 ):
                     obj.date_joined
 
@@ -561,7 +561,7 @@ if __name__ == "__main__":
                 self.assertEqual(obj.testing_aliasing, obj.first_name)
                 with self.assertRaisesMessage(
                     self.MissingLocalField,
-                    "Access to 'last_name' attribute on User was prevented because it was not selected; probably defer() or only() were used.",
+                    "Access to 'last_name' attribute on User was prevented because it was not selected.\nProbably defer() or only() were used.",
                 ):
                     obj.last_name
 
@@ -634,7 +634,7 @@ if __name__ == "__main__":
                 obj.model
                 with self.assertRaisesMessage(
                     self.MissingReverseRelationField,
-                    "Access to reverse manager 'permission_set' on ContentType was prevented because it was not selected; probably missing from prefetch_related()",
+                    "Access to reverse manager 'permission_set' on ContentType was prevented because it was not selected.\nProbably missing from prefetch_related()",
                 ):
                     obj.permission_set.all()
 
@@ -662,7 +662,7 @@ if __name__ == "__main__":
                 obj.model
                 with self.assertRaisesMessage(
                     self.MissingReverseRelationField,
-                    "Access to reverse manager 'logentry_set' on ContentType was prevented because it was not part of the prefetch_related() selection used",
+                    "Access to reverse manager 'logentry_set' on ContentType was prevented.\nIt was not part of the prefetch_related() selection used",
                 ):
                     set(obj.logentry_set.all())
 
@@ -754,12 +754,12 @@ if __name__ == "__main__":
                 i = User.objects.get(pk=self.user.pk)
                 with self.assertRaisesMessage(
                     self.MissingRelationField,
-                    "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                    "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected.\nProbably missing from prefetch_related()",
                 ):
                     i.groups.all()
                 with self.assertRaisesMessage(
                     self.MissingRelationField,
-                    "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                    "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected.\nProbably missing from prefetch_related()",
                 ):
                     i.user_permissions.all()
 
@@ -776,7 +776,7 @@ if __name__ == "__main__":
                 tuple(i.groups.all())
                 with self.assertRaisesMessage(
                     self.MissingRelationField,
-                    "Access to 'permissions' ManyToMany manager attribute on Group was prevented because it was not selected; probably missing from prefetch_related()",
+                    "Access to 'permissions' ManyToMany manager attribute on Group was prevented because it was not selected.\nProbably missing from prefetch_related()",
                 ):
                     i.groups.all()[0].permissions.all()
 
@@ -797,7 +797,7 @@ if __name__ == "__main__":
                 tuple(i.groups.all()[0].permissions.all())
                 with self.assertRaisesMessage(
                     self.MissingRelationField,
-                    "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                    "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected.\nProbably missing from prefetch_related()",
                 ):
                     tuple(i.user_permissions.all())
 
@@ -894,7 +894,7 @@ if __name__ == "__main__":
                 i = Group.objects.get(pk=self.group.pk)
                 with self.assertRaisesMessage(
                     self.MissingRelationField,
-                    "Access to 'user_set' ManyToMany manager attribute on Group was prevented because it was not selected; probably missing from prefetch_related()",
+                    "Access to 'user_set' ManyToMany manager attribute on Group was prevented because it was not selected.\nProbably missing from prefetch_related()",
                 ):
                     i.user_set.all()
 
@@ -911,7 +911,7 @@ if __name__ == "__main__":
                 tuple(i.user_set.all())
                 with self.assertRaisesMessage(
                     self.MissingRelationField,
-                    "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                    "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected.\nProbably missing from prefetch_related()",
                 ):
                     i.user_set.all()[0].user_permissions.all()
 
@@ -1014,12 +1014,12 @@ if __name__ == "__main__":
                 i.change_message
                 with self.assertRaisesMessage(
                     self.MissingRelationField,
-                    "Access to 'user' attribute on LogEntry was prevented because it was not selected; probably missing from prefetch_related() or select_related()",
+                    "Access to 'user' attribute on LogEntry was prevented because it was not selected.\nProbably missing from prefetch_related() or select_related()",
                 ):
                     i.user.pk
                 with self.assertRaisesMessage(
                     self.MissingRelationField,
-                    "Access to 'content_type' attribute on LogEntry was prevented because it was not selected; probably missing from prefetch_related() or select_related()",
+                    "Access to 'content_type' attribute on LogEntry was prevented because it was not selected.\nProbably missing from prefetch_related() or select_related()",
                 ):
                     i.content_type.pk
 
@@ -1135,7 +1135,7 @@ if __name__ == "__main__":
                 obj = User.objects.only("pk", "first_name").get(pk=instance.pk)
                 with self.assertRaisesMessage(
                     self.MissingLocalField,
-                    "Access to 'password' attribute on User was prevented because it was not selected; probably defer() or only() were used.",
+                    "Access to 'password' attribute on User was prevented because it was not selected.\nProbably defer() or only() were used.",
                 ):
                     UserForm(data=None, instance=obj)
 
@@ -1176,7 +1176,7 @@ if __name__ == "__main__":
                 obj = User.objects.get(pk=instance.pk)
                 with self.assertRaisesMessage(
                     self.MissingRelationField,
-                    "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                    "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected.\nProbably missing from prefetch_related()",
                 ):
                     UserForm(data=None, instance=obj)
 
@@ -1208,7 +1208,7 @@ if __name__ == "__main__":
             )
             with self.assertRaisesMessage(
                 self.MissingLocalField,
-                "Access to 'last_name' attribute on User was prevented because it was not selected; probably defer() or only() were used.",
+                "Access to 'last_name' attribute on User was prevented because it was not selected.\nProbably defer() or only() were used.",
             ):
                 tmpl.render(Context({"u": u,}))
 
@@ -1222,7 +1222,7 @@ if __name__ == "__main__":
             )
             with self.assertRaisesMessage(
                 self.MissingRelationField,
-                "Access to 'content_type' attribute on Permission was prevented because it was not selected; probably missing from prefetch_related() or select_related()",
+                "Access to 'content_type' attribute on Permission was prevented because it was not selected.\nProbably missing from prefetch_related() or select_related()",
             ):
                 tmpl.render(Context({"p": p,}))
 
@@ -1236,7 +1236,7 @@ if __name__ == "__main__":
             )
             with self.assertRaisesMessage(
                 self.MissingRelationField,
-                "Access to reverse manager 'permission_set' on ContentType was prevented because it was not selected; probably missing from prefetch_related()",
+                "Access to reverse manager 'permission_set' on ContentType was prevented because it was not selected.\nProbably missing from prefetch_related()",
             ):
                 tmpl.render(Context({"ct": ct,}))
 
@@ -1255,7 +1255,7 @@ if __name__ == "__main__":
             )
             with self.assertRaisesMessage(
                 self.MissingRelationField,
-                "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected; probably missing from prefetch_related()",
+                "Access to 'groups' ManyToMany manager attribute on User was prevented because it was not selected.\nProbably missing from prefetch_related()",
             ):
                 tmpl.render(Context({"u": u,}))
 
@@ -1269,7 +1269,7 @@ if __name__ == "__main__":
             )
             with self.assertRaisesMessage(
                 self.MissingRelationField,
-                "Access to 'user_set' ManyToMany manager attribute on Group was prevented because it was not selected; probably missing from prefetch_related()",
+                "Access to 'user_set' ManyToMany manager attribute on Group was prevented because it was not selected.\nProbably missing from prefetch_related()",
             ):
                 tmpl.render(Context({"g": g,}))
 
