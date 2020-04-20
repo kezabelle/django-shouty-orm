@@ -162,6 +162,7 @@ old_foreignkey_descriptor_get_object = ForwardManyToOneDescriptor.get_object
 
 def new_deferredattribute_check_parent_chain(self, instance, name=None):
     # type: (DeferredAttribute, Model, Optional[Text]) -> Any
+    __traceback_hide__ = True
     # In Django 3.0, DeferredAttribute was refactored somewhat so that
     # _check_parent_chain no longer requires passing a name instance.
     if DJANGO_VERSION[0:2] < (3, 0):
@@ -189,6 +190,7 @@ class MissingPrefetchRelatedManager(CallableObjectProxy):  # type: ignore
 
     def all(self):
         # type: () -> None
+        __traceback_hide__ = True
         raise MissingReverseRelationField(self._self_error_message)
 
 
@@ -213,6 +215,7 @@ def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
     without having used `prefetch_related("myothermodel_set")` to ensure
     it's not going to do N extra queries.
     """
+    __traceback_hide__ = True
     if instance is None:
         return self
 
@@ -261,6 +264,7 @@ def new_reverse_onetoone_descriptor_get(self, instance, cls=None):
     without having used `select_related("myothermodel")` to ensure it's not
     going to trigger further queries.
     """
+    __traceback_hide__ = True
     if instance is None:
         return self
     try:
@@ -283,6 +287,7 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
     raise an exception because we've proxied the manager due to prefetch_related
     usage (or lack thereof)
     """
+    __traceback_hide__ = True
     if instance is None:
         return self
 
@@ -326,6 +331,7 @@ def new_foreignkey_descriptor_get_object(self, instance):
     this will be invoked when trying to access mymodel_instance.myfk
     without having either used prefetch_related() or select_related()
     """
+    __traceback_hide__ = True
     raise MissingRelationField(
         _TMPL_MISSING_LOCAL_FK.format(
             attr=self.field.get_cache_name(), cls=instance.__class__.__name__,

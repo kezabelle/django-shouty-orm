@@ -1,5 +1,10 @@
 Change history for django-shouty-orm
 ------------------------------------
+
+?next?
+^^^^^^
+* Feature: the patch methods themselves are skipped during rendering the debug error page. The exception message and functionality remain the same.
+
 0.1.1
 ^^^^^^
 * Initial release
