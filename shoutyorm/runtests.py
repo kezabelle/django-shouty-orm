@@ -38,7 +38,6 @@ django.setup()
 
 from shoutyorm.tests import (
     LocalFieldsTestCase,
-    NormalRelationFieldsTestCase,
     MostlyM2MPrefetchRelatedTestCase,
     PrefetchReverseRelatedTestCase,
     ReverseRelationFieldsTestCase,
@@ -46,7 +45,10 @@ from shoutyorm.tests import (
     TemplateTestCase,
     MyPyTestCase,
 )
-from shoutyorm.test_onetoone import ForwardOneToOneDescriptorTestCase
+from shoutyorm.test_onetoone import (
+    ForwardOneToOneDescriptorTestCase,
+    ReverseOneToOneDescriptorTestCase,
+)
 from shoutyorm.test_foreignkey import ForwardForeignKeyDescriptorTestCase
 
 test_runner = DiscoverRunner(interactive=False, verbosity=2)
@@ -54,13 +56,13 @@ failures = test_runner.run_tests(
     test_labels=[],
     extra_tests=[
         test_runner.test_loader.loadTestsFromTestCase(LocalFieldsTestCase),
-        test_runner.test_loader.loadTestsFromTestCase(NormalRelationFieldsTestCase),
         test_runner.test_loader.loadTestsFromTestCase(MostlyM2MPrefetchRelatedTestCase),
         test_runner.test_loader.loadTestsFromTestCase(PrefetchReverseRelatedTestCase),
         test_runner.test_loader.loadTestsFromTestCase(ReverseRelationFieldsTestCase),
         test_runner.test_loader.loadTestsFromTestCase(FormTestCase),
         test_runner.test_loader.loadTestsFromTestCase(TemplateTestCase),
         test_runner.test_loader.loadTestsFromTestCase(ForwardOneToOneDescriptorTestCase),
+        test_runner.test_loader.loadTestsFromTestCase(ReverseOneToOneDescriptorTestCase),
         test_runner.test_loader.loadTestsFromTestCase(ForwardForeignKeyDescriptorTestCase),
         test_runner.test_loader.loadTestsFromTestCase(MyPyTestCase),
     ],

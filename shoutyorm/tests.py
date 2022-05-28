@@ -97,46 +97,6 @@ class LocalFieldsTestCase(TestCase):  # type: ignore
 
 
 # noinspection PyStatementEffect
-class NormalRelationFieldsTestCase(TestCase):  # type: ignore
-    """
-    Covers how the following behave:
-    - new_foreignkey_descriptor_get_object
-    """
-
-    def setUp(self):
-        # type: () -> None
-        # Have to import the exceptions here to avoid __main__.ExceptionCls
-        # not being the same as shoutyorm.ExceptionCls, otherwise the test
-        # cases have to be outside the __main__ block.
-        # noinspection PyUnresolvedReferences
-        from shoutyorm import MissingRelationField
-
-        self.MissingRelationField = MissingRelationField
-
-    def test_accessing_foreignkey_with_select_related(self):
-        # type: () -> None
-        """Never hits new_foreignkey_descriptor_get_object"""
-        with self.assertNumQueries(1):
-            obj = Permission.objects.select_related("content_type").all()[0]  # type: Permission
-        with self.assertNumQueries(0):
-            obj.name
-            obj.codename
-            obj.content_type_id
-            obj.content_type.pk
-
-    def test_accessing_foreignkey_with_prefetch_related(self):
-        # type: () -> None
-        """Never hits new_foreignkey_descriptor_get_object"""
-        with self.assertNumQueries(2):
-            obj = Permission.objects.prefetch_related("content_type").all()[0]  # type: Permission
-        with self.assertNumQueries(0):
-            obj.name
-            obj.codename
-            obj.content_type_id
-            obj.content_type.pk
-
-
-# noinspection PyStatementEffect
 class ReverseRelationFieldsTestCase(TestCase):  # type: ignore
     """
     These tests should demonstrate behaviour of
