@@ -47,6 +47,7 @@ from shoutyorm.tests import (
     ForwardManyToOneDescriptorTestCase,
     MyPyTestCase,
 )
+from shoutyorm.test_onetoone import ForwardOneToOneDescriptorTestCase
 
 test_runner = DiscoverRunner(interactive=False, verbosity=2)
 failures = test_runner.run_tests(
@@ -60,6 +61,7 @@ failures = test_runner.run_tests(
         test_runner.test_loader.loadTestsFromTestCase(FormTestCase),
         test_runner.test_loader.loadTestsFromTestCase(TemplateTestCase),
         test_runner.test_loader.loadTestsFromTestCase(ForwardManyToOneDescriptorTestCase),
+        test_runner.test_loader.loadTestsFromTestCase(ForwardOneToOneDescriptorTestCase),
         test_runner.test_loader.loadTestsFromTestCase(MyPyTestCase),
     ],
 )
