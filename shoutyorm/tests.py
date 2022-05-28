@@ -10,6 +10,9 @@ from django import VERSION as DJANGO_VERSION
 
 
 # noinspection PyStatementEffect
+from shoutyorm.errors import MissingForeignKeyField
+
+
 class LocalFieldsTestCase(TestCase):  # type: ignore
     """
     Show what happens when new_deferredattribute_check_parent_chain
@@ -533,13 +536,13 @@ class ForwardManyToOneDescriptorTestCase(TestCase):  # type: ignore
             i.action_flag
             i.change_message
             with self.assertRaisesMessage(
-                self.MissingRelationField,
-                "Access to 'user' attribute on LogEntry was prevented because it was not selected.\nProbably missing from prefetch_related() or select_related()",
+                MissingForeignKeyField,
+                "Access to `LogEntry.user` was prevented.\nIf you only need access to the column identifier, use `LogEntry.user_id` instead.\nTo fetch the `User` object, add `prefetch_related('user')` or `select_related('user')` to the query where `LogEntry` objects are selected.",
             ):
                 i.user.pk
             with self.assertRaisesMessage(
-                self.MissingRelationField,
-                "Access to 'content_type' attribute on LogEntry was prevented because it was not selected.\nProbably missing from prefetch_related() or select_related()",
+                MissingForeignKeyField,
+                "Access to `LogEntry.content_type` was prevented.\nIf you only need access to the column identifier, use `LogEntry.content_type_id` instead.\nTo fetch the `ContentType` object, add `prefetch_related('content_type')` or `select_related('content_type')` to the query where `LogEntry` objects are selected.",
             ):
                 i.content_type.pk
 
@@ -743,8 +746,10 @@ class TemplateTestCase(TestCase):  # type: ignore
         """
         )
         with self.assertRaisesMessage(
-            self.MissingRelationField,
-            "Access to 'content_type' attribute on Permission was prevented because it was not selected.\nProbably missing from prefetch_related() or select_related()",
+            MissingForeignKeyField,
+            "Access to `Permission.content_type` was prevented.\n"
+            "If you only need access to the column identifier, use `Permission.content_type_id` instead.\n"
+            "To fetch the `ContentType` object, add `prefetch_related('content_type')` or `select_related('content_type')` to the query where `Permission` objects are selected.",
         ):
             tmpl.render(
                 Context(

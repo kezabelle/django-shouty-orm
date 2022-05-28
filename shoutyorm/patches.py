@@ -18,14 +18,19 @@ _TMPL_MISSING_LOCAL = "Access to '{attr}' attribute on {cls} was prevented becau
 _TMPL_MISSING_ANY_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented because it was not selected.\nProbably missing from prefetch_related()"
 _TMPL_MISSING_SPECIFIC_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented.\nIt was not part of the prefetch_related() selection used"
 _TMPL_MISSING_M2M_PREFETCH = "Access to '{attr}' ManyToMany manager attribute on {cls} was prevented because it was not selected.\nProbably missing from prefetch_related()"
-_TMPL_MISSING_LOCAL_FK = "Access to '{attr}' attribute on {cls} was prevented because it was not selected.\nProbably missing from prefetch_related() or select_related()"
 _TMPL_MISSING_REVERSE_121 = "Access to '{attr}' relation attribute on {cls} was prevented because it was not selected.\nProbably missing from select_related()"
 
 
 # This is used so that when .only() and .defer() are used, I can prevent the
 # bit which would cause a query for unselected fields.
 # noinspection PyProtectedMember
-from shoutyorm.errors import MissingReverseRelationField, MissingLocalField, MissingRelationField
+from shoutyorm.errors import (
+    MissingReverseRelationField,
+    MissingLocalField,
+    MissingRelationField,
+    MissingOneToOneField,
+    MissingForeignKeyField,
+)
 from wrapt import CallableObjectProxy
 
 old_deferredattribute_check_parent_chain = DeferredAttribute._check_parent_chain
@@ -237,21 +242,54 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
 def new_foreignkey_descriptor_get_object(self, instance):
     # type: (ForwardManyToOneDescriptor, Model) -> None
     """
-    In a scenario with a model like the below:
+    This covers both OneToOneField and ForeignKey forward references.
 
-    class MyModel(models.Model):
-        myfk = models.ForeignKey(...)
+    This will be invoked when trying to access `mymodel_instance.myfk`
+    or `mymodel_instance.myonetoone`  without having either used
+    prefetch_related() or select_related().
 
-    this will be invoked when trying to access mymodel_instance.myfk
-    without having either used prefetch_related() or select_related()
+    Note that for the OneToOne case, when `parent_link` is available (which is
+    for concrete inheritance IIRC?) there won't be a query anyway, so this method
+    won't get called.
+
+    In the example::
+
+        class Restaurant(Model):
+            place = OneToOneField(Place, related_name='restaurant')
+
+    ``Restaurant.place`` is a ``ForwardOneToOneDescriptor`` instance.
+
+    In the example::
+
+        class Child(Model):
+            parent = ForeignKey(Parent, related_name='children')
+
+    ``Child.parent`` is a ``ForwardManyToOneDescriptor`` instance.
     """
-    __traceback_hide__ = True
-    raise MissingRelationField(
-        _TMPL_MISSING_LOCAL_FK.format(
+    __traceback_hide__ = True  # django
+    __tracebackhide__ = True  # pytest (+ipython?)
+    __debuggerskip__ = True  # (ipython+ipdb?)
+    exception_class = MissingOneToOneField if self.field.one_to_one else MissingForeignKeyField
+    # TODO: this could fail and not be set, for non-persisted or non-autofields, right?
+    # my_pk = getattr(instance, "pk", None)
+    # TODO: this could fail too?
+    # their_pk = getattr(instance, self.field.get_attname(), None)
+
+    exception = exception_class(
+        "Access to `{cls}.{attr}` was prevented.\n"
+        "If you only need access to the column identifier, use `{cls}.{field_column}` instead.\n"
+        "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
             attr=self.field.get_cache_name(),
             cls=instance.__class__.__name__,
+            field_column=self.field.get_attname(),
+            # x_related_name=other_side.get_accessor_name() or "...",
+            x_related_name=self.field.get_cache_name() or "...",
+            remote_cls=self.field.remote_field.model.__name__,
         )
     )
+    # supress KeyError from ForwardManyToOneDescriptor.__get__ via FieldCacheMixin.get_cached_value
+    exception.__cause__ = None
+    raise exception
 
 
 def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
@@ -279,13 +317,13 @@ def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
 
     if invalid_relations is True:
 
+        # This patches `mymodel.myrelation` where `myrelation` is either
+        # myrelation = ForeignKey(...)
+        # myrelation = OneToOneField(...)
         patched_manytoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
         if patched_manytoone is False:
             ForwardManyToOneDescriptor.get_object = new_foreignkey_descriptor_get_object
             ForwardManyToOneDescriptor._shouty = True
-
-        # patched_onetoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
-        # ForwardOneToOneDescriptor
 
         patched_manytomany = getattr(ManyToManyDescriptor, "_shouty", False)
         if patched_manytomany is False:
