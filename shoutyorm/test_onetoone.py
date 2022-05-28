@@ -59,6 +59,7 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
             (side_a,) = self.CassetteSideA.objects.prefetch_related("side_b").all()
         with self.assertNumQueries(0):
             self.assertEqual(side_a.side_b.title, "Side B!")
+            self.assertEqual(side_a.title, "Side A!")
 
     def test_forward_one_to_one_select_relatd(self):
         """myobject.myrelation is a OneToOneField which has been joined"""
@@ -69,6 +70,7 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
             (side_a,) = self.CassetteSideA.objects.select_related("side_b").all()
         with self.assertNumQueries(0):
             self.assertEqual(side_a.side_b.title, "Side B!")
+            self.assertEqual(side_a.title, "Side A!")
 
 
 class ReverseOneToOneDescriptorTestCase(TestCase):
@@ -108,11 +110,11 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
             with self.assertNumQueries(0):
                 self.assertEqual(side_b.title, "Side B!")
                 side_b.pk
+                side_b.title
                 with self.assertRaisesMessage(
                     MissingOneToOneField,
-                    "Access to `CassetteSideA.side_b` was prevented.\n"
-                    "If you only need access to the column identifier, use `CassetteSideA.side_b_id` instead.\n"
-                    "To fetch the `CassetteSideB` object, add `prefetch_related('side_b')` or `select_related('side_b')` to the query where `CassetteSideA` objects are selected.",
+                    "Access to `RewindingCassetteSideB.woo_side_a` was prevented.\n"
+                    "To fetch the `RewindingCassetteSideA` object, add `prefetch_related('woo_side_a')` or `select_related('woo_side_a')` to the query where `RewindingCassetteSideB` objects are selected.",
                 ):
                     side_b.woo_side_a
 
@@ -126,6 +128,7 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
             (side_b,) = self.CassetteSideB.objects.prefetch_related("woo_side_a").all()
         with self.assertNumQueries(0):
             self.assertEqual(side_b.woo_side_a.title, "Side A!")
+            self.assertEqual(side_b.title, "Side B!")
             side_b.pk
             side_b.woo_side_a.pk
 
@@ -139,5 +142,6 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
             (side_b,) = self.CassetteSideB.objects.select_related("woo_side_a").all()
         with self.assertNumQueries(0):
             self.assertEqual(side_b.woo_side_a.title, "Side A!")
+            self.assertEqual(side_b.title, "Side B!")
             side_b.pk
             side_b.woo_side_a.pk

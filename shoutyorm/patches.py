@@ -18,7 +18,6 @@ _TMPL_MISSING_LOCAL = "Access to '{attr}' attribute on {cls} was prevented becau
 _TMPL_MISSING_ANY_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented because it was not selected.\nProbably missing from prefetch_related()"
 _TMPL_MISSING_SPECIFIC_PREFETCH_REVERSE = "Access to reverse manager '{attr}' on {cls} was prevented.\nIt was not part of the prefetch_related() selection used"
 _TMPL_MISSING_M2M_PREFETCH = "Access to '{attr}' ManyToMany manager attribute on {cls} was prevented because it was not selected.\nProbably missing from prefetch_related()"
-_TMPL_MISSING_REVERSE_121 = "Access to '{attr}' relation attribute on {cls} was prevented because it was not selected.\nProbably missing from select_related()"
 
 
 # This is used so that when .only() and .defer() are used, I can prevent the
@@ -180,19 +179,28 @@ def new_reverse_onetoone_descriptor_get(self, instance, cls=None):
     without having used `select_related("myothermodel")` to ensure it's not
     going to trigger further queries.
     """
-    __traceback_hide__ = True
+    __traceback_hide__ = True  # django
+    __tracebackhide__ = True  # pytest (+ipython?)
+    __debuggerskip__ = True  # (ipython+ipdb?)
+
     if instance is None:
         return self
     try:
         self.related.get_cached_value(instance)
     except KeyError:
-        attr = self.related.get_accessor_name()
-        raise MissingRelationField(
-            _TMPL_MISSING_REVERSE_121.format(
-                attr=attr,
+        exception = MissingOneToOneField(
+            "Access to `{cls}.{attr}` was prevented.\n"
+            "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
+                attr=self.related.get_accessor_name(),
                 cls=instance.__class__.__name__,
+                # x_related_name=other_side.get_accessor_name() or "...",
+                x_related_name=self.related.get_accessor_name() or "...",
+                remote_cls=self.related.remote_field.model.__name__,
             )
         )
+        # supress KeyError from chain
+        exception.__cause__ = None
+        raise exception
     return old_reverse_onetoone_descriptor_get(self, instance, cls)
 
 
