@@ -44,10 +44,10 @@ from shoutyorm.tests import (
     ReverseRelationFieldsTestCase,
     FormTestCase,
     TemplateTestCase,
-    ForwardManyToOneDescriptorTestCase,
     MyPyTestCase,
 )
 from shoutyorm.test_onetoone import ForwardOneToOneDescriptorTestCase
+from shoutyorm.test_foreignkey import ForwardForeignKeyDescriptorTestCase
 
 test_runner = DiscoverRunner(interactive=False, verbosity=2)
 failures = test_runner.run_tests(
@@ -60,8 +60,8 @@ failures = test_runner.run_tests(
         test_runner.test_loader.loadTestsFromTestCase(ReverseRelationFieldsTestCase),
         test_runner.test_loader.loadTestsFromTestCase(FormTestCase),
         test_runner.test_loader.loadTestsFromTestCase(TemplateTestCase),
-        test_runner.test_loader.loadTestsFromTestCase(ForwardManyToOneDescriptorTestCase),
         test_runner.test_loader.loadTestsFromTestCase(ForwardOneToOneDescriptorTestCase),
+        test_runner.test_loader.loadTestsFromTestCase(ForwardForeignKeyDescriptorTestCase),
         test_runner.test_loader.loadTestsFromTestCase(MyPyTestCase),
     ],
 )
