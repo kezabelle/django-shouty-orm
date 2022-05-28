@@ -3,7 +3,7 @@ from django.test import TestCase
 from shoutyorm.errors import MissingForeignKeyField
 
 
-class ForwardForeignKeyDescriptorTestCase(TestCase):  # type: ignore
+class ForwardForeignKeyDescriptorTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
         # type: () -> None
@@ -33,16 +33,19 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):  # type: ignore
         self.User.objects.create(
             name="Bert", role=self.Role.objects.create(title="Not quite admin")
         )
-        with self.assertRaisesMessage(
-            MissingForeignKeyField,
-            "Access to `User.role` was prevented.\n"
-            "If you only need access to the column identifier, use `User.role_id` instead.\n"
-            "To fetch the `Role` object, add `prefetch_related('role')` or `select_related('role')` to the query where `User` objects are selected.",
-        ):
+        with self.assertNumQueries(1):
             (user,) = self.User.objects.all()
             with self.assertNumQueries(0):
                 self.assertEqual(user.name, "Bert")
-                user.role
+                user.pk
+                user.role_id
+                with self.assertRaisesMessage(
+                    MissingForeignKeyField,
+                    "Access to `User.role` was prevented.\n"
+                    "If you only need access to the column identifier, use `User.role_id` instead.\n"
+                    "To fetch the `Role` object, add `prefetch_related('role')` or `select_related('role')` to the query where `User` objects are selected.",
+                ):
+                    user.role
 
     def test_foreignkey_prefetch_related(self):
         """myobject.myrelation is a ForeignKey which has not been prefetched"""
