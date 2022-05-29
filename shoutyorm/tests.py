@@ -143,131 +143,6 @@ class MostlyM2MPrefetchRelatedTestCase(TestCase):  # type: ignore
             tuple(i.groups.all()[0].permissions.all())
 
 
-class PrefetchReverseRelatedTestCase(TestCase):  # type: ignore
-    """
-    Demonstrate how
-    - new_manytomany_descriptor_get
-    - new_modeliterable_iter
-    interact with things.
-    """
-
-    def setUp(self):
-        # type: () -> None
-        # Have to import the exceptions here to avoid __main__.ExceptionCls
-        # not being the same as shoutyorm.ExceptionCls, otherwise the test
-        # cases have to be outside the __main__ block.
-        # noinspection PyUnresolvedReferences
-        from shoutyorm import MissingRelationField
-
-        self.MissingRelationField = MissingRelationField
-        self.group = Group.objects.create()
-
-    def test_accessing_nonprefetched_m2m_works_when_trying_to_add(self):
-        # type: () -> None
-        """
-        There are certain methods you want to access on an m2m which disregard
-        the prefetch cache and should specifically not error.
-        """
-        with self.assertNumQueries(1):
-            i = Group.objects.get(pk=self.group.pk)
-        q = 2
-        if DJANGO_VERSION[0:2] < (3, 0):
-            q = 3
-        with self.assertNumQueries(q):
-            i.user_set.add(User.objects.create())
-
-    def test_accessing_nonprefetched_m2m_fails_when_accessing_all(self):
-        # type: () -> None
-        """
-        Normal use case - failure to prefetch should error loudly
-        """
-        with self.assertNumQueries(1):
-            i = Group.objects.get(pk=self.group.pk)
-            with self.assertRaisesMessage(
-                self.MissingRelationField,
-                "Access to 'user_set' ManyToMany manager attribute on Group was prevented because it was not selected.\nProbably missing from prefetch_related()",
-            ):
-                i.user_set.all()
-
-    def test_accessing_nonprefetched_nested_relations_fails(self):
-        # type: () -> None
-        """
-        It's OK to access groups because we prefetched it, but accessing
-        the group's permissions is NOT ok.
-        """
-        self.group.user_set.add(User.objects.create())
-        with self.assertNumQueries(2):
-            i = Group.objects.prefetch_related("user_set").get(pk=self.group.pk)
-        with self.assertNumQueries(0):
-            tuple(i.user_set.all())
-            with self.assertRaisesMessage(
-                self.MissingRelationField,
-                "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected.\nProbably missing from prefetch_related()",
-            ):
-                i.user_set.all()[0].user_permissions.all()
-
-    def test_accessing_prefetched_nested_relations_is_ok(self):
-        # type: () -> None
-        """
-        If we've pre-selected groups and the permissions on those groups,
-        it should be fine to access any permissions in any index of the
-        groups queryset.
-        """
-        self.group.user_set.add(User.objects.create())
-        with self.assertNumQueries(3):
-            i = Group.objects.prefetch_related("user_set", "user_set__user_permissions").get(
-                pk=self.group.pk
-            )
-        with self.assertNumQueries(0):
-            tuple(i.user_set.all())
-            tuple(i.user_set.all()[0].user_permissions.all())
-
-    def test_accessing_multiple_prefetched_nonnested_relations_is_ok(self):
-        # type: () -> None
-        """
-        Accessing more than 1 prefetch at the same level is OK.
-        This was part of the difficulty in figuring this out, because by the
-        time you get to the second prefetch selection you need to NOT prevent
-        access to the queryset until ALL prefetching looks to have finished.
-        """
-        self.group.user_set.add(User.objects.create())
-        with self.assertNumQueries(3):
-            i = Group.objects.prefetch_related("user_set", "permissions").get(pk=self.group.pk)
-        with self.assertNumQueries(0):
-            tuple(i.user_set.all())
-            tuple(i.permissions.all())
-
-    def test_accessing_relations_involving_prefetch_objects_is_ok(self):
-        # type: () -> None
-        """
-        Make sure using a Prefetch object doesn't throw a spanner in the works.
-        """
-        self.group.user_set.add(User.objects.create())
-        with self.assertNumQueries(3):
-            i = Group.objects.prefetch_related(
-                Prefetch("user_set", User.objects.all()),
-                "user_set__user_permissions",
-            ).get(pk=self.group.pk)
-        with self.assertNumQueries(0):
-            tuple(i.user_set.all())
-            tuple(i.user_set.all()[0].user_permissions.all())
-
-    def test_accessing_relations_involving_prefetch_objects_is_ok2(self):
-        # type: () -> None
-        """
-        Make sure using a Prefetch object doesn't throw a spanner in the works.
-        """
-        self.group.user_set.add(User.objects.create())
-        with self.assertNumQueries(3):
-            i = Group.objects.prefetch_related(
-                "user_set",
-                Prefetch("user_set__user_permissions", Permission.objects.all()),
-            ).get(pk=self.group.pk)
-        with self.assertNumQueries(0):
-            tuple(i.user_set.all())
-            tuple(i.user_set.all()[0].user_permissions.all())
-
-
 class FormTestCase(TestCase):  # type: ignore
     """
     Auto generated modelforms are super common, so let's
@@ -496,17 +371,17 @@ class TemplateTestCase(TestCase):  # type: ignore
             )
 
 
-class MyPyTestCase(TestCase):  # type: ignore
-    def test_for_types(self):
-        # type: () -> None
-        try:
-            from mypy import api as mypy
-        except ImportError:
-            return
-        else:
-            here = os.path.dirname(os.path.abspath(__file__))
-            report, errors, exit_code = mypy.run(["--strict", "--ignore-missing-imports", here])
-            if errors:
-                self.fail(errors)
-            elif exit_code > 0:
-                self.fail(report)
+# class MyPyTestCase(TestCase):  # type: ignore
+#     def test_for_types(self):
+#         # type: () -> None
+#         try:
+#             from mypy import api as mypy
+#         except ImportError:
+#             return
+#         else:
+#             here = os.path.dirname(os.path.abspath(__file__))
+#             report, errors, exit_code = mypy.run(["--strict", "--ignore-missing-imports", here])
+#             if errors:
+#                 self.fail(errors)
+#             elif exit_code > 0:
+#                 self.fail(report)
