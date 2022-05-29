@@ -73,7 +73,9 @@ old_foreignkey_descriptor_get_object = ForwardManyToOneDescriptor.get_object
 
 def new_deferredattribute_check_parent_chain(self, instance, name=None):
     # type: (DeferredAttribute, Model, Optional[Text]) -> Any
-    __traceback_hide__ = True
+    __traceback_hide__ = True  # django
+    __tracebackhide__ = True  # pytest (+ipython?)
+    __debuggerskip__ = True  # (ipython+ipdb?)
     # In Django 3.0, DeferredAttribute was refactored somewhat so that
     # _check_parent_chain no longer requires passing a name instance.
     if DJANGO_VERSION[0:2] < (3, 0):
@@ -82,14 +84,33 @@ def new_deferredattribute_check_parent_chain(self, instance, name=None):
     else:
         val = old_deferredattribute_check_parent_chain(self, instance)
         assert name is None, "Unexpected name value"
-        name = self.field.attname
     if val is None:
-        raise MissingLocalField(
-            _TMPL_MISSING_LOCAL.format(
-                attr=name,
+        deferred_fields = instance.get_deferred_fields()
+        selected_fields = {
+            f.attname for f in instance._meta.concrete_fields if f.attname in instance.__dict__
+        }
+        defer_msg = "remove `{attr}` from `defer({deferred!s})`"
+        only_msg = "Add `{attr}` to `only({selected!s})`"
+        if deferred_fields == {self.field.attname}:
+            defer_msg = "remove the `defer({deferred!s})`"
+            only_msg = "Remove the `only(...)`"
+        exception = MissingLocalField(
+            (
+                "Access to `{cls}.{attr}` was prevented.\n"
+                + only_msg
+                + " or "
+                + defer_msg
+                + " where `{cls}` objects are selected`"
+            ).format(
+                attr=self.field.attname,
                 cls=instance.__class__.__name__,
+                selected=", ".join("'{}'".format(key) for key in sorted(selected_fields)),
+                deferred=", ".join("'{}'".format(key) for key in sorted(deferred_fields)),
             )
         )
+        # Hide KeyError from get_cached_value
+        exception.__cause__ = None
+        raise exception
     return val
 
 

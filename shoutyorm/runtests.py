@@ -37,7 +37,6 @@ settings.configure(
 django.setup()
 
 from shoutyorm.tests import (
-    LocalFieldsTestCase,
     MostlyM2MPrefetchRelatedTestCase,
     PrefetchReverseRelatedTestCase,
     ReverseRelationFieldsTestCase,
@@ -53,12 +52,12 @@ from shoutyorm.test_foreignkey import (
     ForwardForeignKeyDescriptorTestCase,
     ReverseForeignKeyDescriptorTestCase,
 )
+from shoutyorm.test_only_defer import OnlyDeferTestCase
 
 test_runner = DiscoverRunner(interactive=False, verbosity=2)
 failures = test_runner.run_tests(
     test_labels=[],
     extra_tests=[
-        test_runner.test_loader.loadTestsFromTestCase(LocalFieldsTestCase),
         test_runner.test_loader.loadTestsFromTestCase(MostlyM2MPrefetchRelatedTestCase),
         test_runner.test_loader.loadTestsFromTestCase(PrefetchReverseRelatedTestCase),
         test_runner.test_loader.loadTestsFromTestCase(ReverseRelationFieldsTestCase),
@@ -68,6 +67,7 @@ failures = test_runner.run_tests(
         test_runner.test_loader.loadTestsFromTestCase(ReverseOneToOneDescriptorTestCase),
         test_runner.test_loader.loadTestsFromTestCase(ForwardForeignKeyDescriptorTestCase),
         test_runner.test_loader.loadTestsFromTestCase(ReverseForeignKeyDescriptorTestCase),
+        test_runner.test_loader.loadTestsFromTestCase(OnlyDeferTestCase),
         test_runner.test_loader.loadTestsFromTestCase(MyPyTestCase),
     ],
 )
