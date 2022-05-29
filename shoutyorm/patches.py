@@ -105,45 +105,6 @@ def new_deferredattribute_check_parent_chain(self, instance, name=None):
     return val
 
 
-def new_reverse_relatedmanager_all(self, *args, **kwargs):
-    # type: (Manager, *Any, **Any) -> Any
-    __traceback_hide__ = True  # django
-    __tracebackhide__ = True  # pytest (+ipython?)
-    __debuggerskip__ = True  # (ipython+ipdb?)
-    if not hasattr(self.instance, "_prefetched_objects_cache"):
-        exception = MissingReverseRelationField(
-            "Access to `{cls}.{attr}.all()` was prevented.\n"
-            "To fetch the `{remote_cls}` objects, add `prefetch_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
-                attr=self.field.remote_field.get_accessor_name(),
-                cls=self.field.remote_field.model.__name__,
-                x_related_name=self.field.remote_field.get_cache_name() or "...",
-                remote_cls=self.model.__name__,
-            )
-        )
-        exception.__cause__ = None
-        raise exception
-    elif (
-        self.instance._prefetched_objects_cache
-        and self.field.remote_field.get_cache_name() not in self.instance._prefetched_objects_cache
-    ):
-        exception = MissingReverseRelationField(
-            "Access to `{cls}.{attr}.all()` was prevented.\n"
-            "To fetch the `{remote_cls}` objects, add {x_related_name!r} to the existing `prefetch_related({existing_prefetch!s})` part of the query where `{cls}` objects are selected.".format(
-                attr=self.field.remote_field.get_accessor_name(),
-                cls=self.field.remote_field.model.__name__,
-                x_related_name=self.field.remote_field.get_cache_name() or "...",
-                remote_cls=self.model.__name__,
-                existing_prefetch=", ".join(
-                    "'{}'".format(key)
-                    for key in sorted(self.instance._prefetched_objects_cache.keys())
-                ),
-            )
-        )
-        exception.__cause__ = None
-        raise exception
-    return self._shouty_all(*args, **kwargs)
-
-
 def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
     # type: (ReverseManyToOneDescriptor, Model, None) -> Any
     """
@@ -173,8 +134,54 @@ def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
         return self
 
     manager = old_reverse_foreignkey_descriptor_get(self, instance, cls)
-    manager._shouty_all = manager.all
-    manager.all = new_reverse_relatedmanager_all.__get__(manager)
+
+    if not hasattr(instance, "_prefetched_objects_cache"):
+        exception = MissingReverseRelationField(
+            "Access to `{cls}.{attr}.all()` was prevented.\n"
+            "To fetch the `{remote_cls}` objects, add `prefetch_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
+                attr=self.field.remote_field.get_accessor_name(),
+                cls=self.field.remote_field.model.__name__,
+                x_related_name=self.field.remote_field.get_cache_name() or "...",
+                remote_cls=self.field.model.__name__,
+            )
+        )
+        exception.__cause__ = None
+
+        def no_prefetched_all(self, *args, **kwargs):
+            # type: (Manager, *Any, **Any) -> NoReturn
+            __traceback_hide__ = True  # django
+            __tracebackhide__ = True  # pytest (+ipython?)
+            __debuggerskip__ = True  # (ipython+ipdb?)
+            raise exception
+
+        manager.all = no_prefetched_all.__get__(manager)
+    elif (
+        instance._prefetched_objects_cache
+        and self.field.remote_field.get_cache_name() not in instance._prefetched_objects_cache
+    ):
+        exception = MissingReverseRelationField(
+            "Access to `{cls}.{attr}.all()` was prevented.\n"
+            "To fetch the `{remote_cls}` objects, add {x_related_name!r} to the existing `prefetch_related({existing_prefetch!s})` part of the query where `{cls}` objects are selected.".format(
+                attr=self.field.remote_field.get_accessor_name(),
+                cls=self.field.remote_field.model.__name__,
+                x_related_name=self.field.remote_field.get_cache_name() or "...",
+                remote_cls=self.field.model.__name__,
+                existing_prefetch=", ".join(
+                    "'{}'".format(key) for key in sorted(instance._prefetched_objects_cache.keys())
+                ),
+            )
+        )
+        exception.__cause__ = None
+
+        def partial_prefetched_all(self, *args, **kwargs):
+            # type: (Manager, *Any, **Any) -> NoReturn
+            __traceback_hide__ = True  # django
+            __tracebackhide__ = True  # pytest (+ipython?)
+            __debuggerskip__ = True  # (ipython+ipdb?)
+            raise exception
+
+        manager.all = partial_prefetched_all.__get__(manager)
+
     return manager
 
 
