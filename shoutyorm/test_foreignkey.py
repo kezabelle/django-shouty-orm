@@ -2,6 +2,8 @@ from django.db import models, connection, DatabaseError
 from django.test import TestCase
 from shoutyorm.errors import MissingForeignKeyField, MissingReverseRelationField
 
+from django import VERSION as DJANGO_VERSION
+
 
 class ForwardForeignKeyDescriptorTestCase(TestCase):
     @classmethod
@@ -85,6 +87,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
                 on_delete=models.CASCADE,
                 db_column="role_reference",
                 related_name="users",
+                null=True,
             )
 
         try:
@@ -131,3 +134,48 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
                 "To fetch the `ReversableUser` objects, add 'users' to the existing `prefetch_related('otherthing_set')` part of the query where `ReversableRole` objects are selected.",
             ):
                 role.users.all()
+
+    def test_adding_to_related_set(self):
+        """Modifying the contents of the related manager should be fine"""
+        with self.assertNumQueries(2):
+            role = self.Role.objects.create(title="Not quite admin")
+            user = self.User.objects.create(name="Bert", role=role)
+
+        with self.assertNumQueries(1):
+            role.users.clear()
+
+        q = 1
+        if DJANGO_VERSION[0:2] < (3, 0):
+            q = 2
+        with self.assertNumQueries(q):
+            role.users.add(user)
+
+        with self.assertNumQueries(1):
+            role.users.remove(user)
+
+        with self.assertNumQueries(2):
+            self.assertIsNone(role.users.first())
+            self.assertIsNone(role.users.last())
+
+        q = 2
+        if DJANGO_VERSION[0:2] < (3, 0):
+            q = 3
+        with self.assertNumQueries(q):
+            role.users.set((user,))
+
+        # Not sure why both of these are 0 queries? Neither uses the _result_cache
+        # AFAIK, so surely they should always do one?
+        with self.assertNumQueries(0):
+            role.users.exclude(name__icontains="test")
+        with self.assertNumQueries(0):
+            role.users.filter(name__icontains="test")
+
+        # Especially as the following all ... do a query?
+        with self.assertNumQueries(1):
+            self.assertEqual(role.users.count(), 1)
+        with self.assertNumQueries(1):
+            self.assertTrue(role.users.exists())
+        with self.assertNumQueries(1):
+            self.assertIsNotNone(role.users.first())
+        with self.assertNumQueries(1):
+            self.assertIsNotNone(role.users.last())

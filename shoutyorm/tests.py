@@ -13,61 +13,6 @@ from django import VERSION as DJANGO_VERSION
 from shoutyorm.errors import MissingForeignKeyField
 
 
-# noinspection PyStatementEffect
-class ReverseRelationFieldsTestCase(TestCase):  # type: ignore
-    """
-    These tests should demonstrate behaviour of
-    new_reverse_foreignkey_descriptor_get
-    """
-
-    def setUp(self):
-        # type: () -> None
-        # Have to import the exceptions here to avoid __main__.ExceptionCls
-        # not being the same as shoutyorm.ExceptionCls, otherwise the test
-        # cases have to be outside the __main__ block.
-        # noinspection PyUnresolvedReferences
-        from shoutyorm import MissingReverseRelationField
-
-        self.MissingReverseRelationField = MissingReverseRelationField
-
-    def test_using_other_side_of_foreignkey_for_adding_etc(self):
-        # type: () -> None
-        with self.assertNumQueries(2):
-            group = Group.objects.create()
-            user = User.objects.create(username="test")
-        with self.assertNumQueries(1):
-            group.user_set.clear()
-        q = 1
-        if DJANGO_VERSION[0:2] < (3, 0):
-            q = 2
-        with self.assertNumQueries(q):
-            group.user_set.add(user)
-        with self.assertNumQueries(1):
-            group.user_set.remove(user)
-        with self.assertNumQueries(2):
-            self.assertIsNone(group.user_set.first())
-            self.assertIsNone(group.user_set.last())
-        q = 2
-        if DJANGO_VERSION[0:2] < (3, 0):
-            q = 3
-        with self.assertNumQueries(q):
-            group.user_set.set((user,))
-        # Not sure why both of these are 0 queries? Neither uses the _result_cache
-        # AFAIK, so surely they should always do one?
-        with self.assertNumQueries(0):
-            group.user_set.exclude(username__icontains="test")
-        with self.assertNumQueries(0):
-            group.user_set.filter(username__icontains="test")
-        # Especially as the following all ... do a query?
-        with self.assertNumQueries(1):
-            self.assertEqual(group.user_set.count(), 1)
-        with self.assertNumQueries(1):
-            self.assertTrue(group.user_set.exists())
-        with self.assertNumQueries(2):
-            self.assertIsNotNone(group.user_set.first())
-            self.assertIsNotNone(group.user_set.last())
-
-
 class MostlyM2MPrefetchRelatedTestCase(TestCase):  # type: ignore
     def setUp(self):
         # type: () -> None

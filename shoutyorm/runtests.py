@@ -39,7 +39,6 @@ django.setup()
 from shoutyorm.tests import (
     MostlyM2MPrefetchRelatedTestCase,
     PrefetchReverseRelatedTestCase,
-    ReverseRelationFieldsTestCase,
     FormTestCase,
     TemplateTestCase,
     MyPyTestCase,
@@ -60,7 +59,6 @@ failures = test_runner.run_tests(
     extra_tests=[
         test_runner.test_loader.loadTestsFromTestCase(MostlyM2MPrefetchRelatedTestCase),
         test_runner.test_loader.loadTestsFromTestCase(PrefetchReverseRelatedTestCase),
-        test_runner.test_loader.loadTestsFromTestCase(ReverseRelationFieldsTestCase),
         test_runner.test_loader.loadTestsFromTestCase(FormTestCase),
         test_runner.test_loader.loadTestsFromTestCase(TemplateTestCase),
         test_runner.test_loader.loadTestsFromTestCase(ForwardOneToOneDescriptorTestCase),
