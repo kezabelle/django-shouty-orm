@@ -3,6 +3,7 @@ from django.db import models, connection, DatabaseError
 
 from django import VERSION as DJANGO_VERSION
 from shoutyorm import MissingRelationField
+from shoutyorm.errors import MissingManyToManyField
 
 
 class ManyToManyTestCase(TestCase):
@@ -12,18 +13,18 @@ class ManyToManyTestCase(TestCase):
         class RelatedGroup(models.Model):
             title = models.CharField(max_length=100)
 
-        class Item(models.Model):
+        class M2MItem(models.Model):
             title = models.CharField(max_length=100)
             groups = models.ManyToManyField(RelatedGroup)
 
         try:
             with connection.schema_editor() as editor:
                 editor.create_model(RelatedGroup)
-                editor.create_model(Item)
+                editor.create_model(M2MItem)
         except DatabaseError as exc:
             raise cls.failureException("Unable to create the table (%s)" % exc)
 
-        cls.Item = Item
+        cls.Item = M2MItem
         cls.Group = RelatedGroup
         super().setUpClass()
 
@@ -33,10 +34,9 @@ class ManyToManyTestCase(TestCase):
         There are certain methods you want to access on an m2m which disregard
         the prefetch cache and should specifically not error.
         """
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(1):
             self.Item.objects.create(
                 title="test item",
-                related_thing=self.RelatedThing.objects.create(title="test related thing"),
             )
 
         with self.assertNumQueries(1):
@@ -46,7 +46,7 @@ class ManyToManyTestCase(TestCase):
         if DJANGO_VERSION[0:2] < (3, 0):
             q = 3
         with self.assertNumQueries(q):
-            group.item_set.add(self.Item.objects.create(title="item"))
+            group.m2mitem_set.add(self.Item.objects.create(title="item"))
 
     def test_accessing_nonprefetched_m2m_fails_when_accessing_all(self):
         # type: () -> None
@@ -56,12 +56,13 @@ class ManyToManyTestCase(TestCase):
         with self.assertNumQueries(1):
             group = self.Group.objects.create(title="group")
 
-        with self.assertNumQueries(1):
+        with self.assertNumQueries(0):
             with self.assertRaisesMessage(
-                MissingRelationField,
-                "Access to 'user_set' ManyToMany manager attribute on Group was prevented because it was not selected.\nProbably missing from prefetch_related()",
+                MissingManyToManyField,
+                "Access to `RelatedGroup.m2mitem_set.all()` was prevented.\n"
+                "To fetch the `M2MItem` objects, add `prefetch_related('m2mitem_set')` to the query where `RelatedGroup` objects are selected.",
             ):
-                group.item_set.all()
+                group.m2mitem_set.all()
 
 
 class NestedManyToManyTestCase(TestCase):
@@ -97,7 +98,7 @@ class NestedManyToManyTestCase(TestCase):
         # type: () -> None
         """
         It's OK to access groups because we prefetched it, but accessing
-        the group's permissions is NOT ok.
+        the group's nested set is NOT ok.
         """
         nested = self.NestedGroup.objects.create(title="nested")
         group = self.Group.objects.create(title="group")
@@ -111,8 +112,9 @@ class NestedManyToManyTestCase(TestCase):
         with self.assertNumQueries(0):
             (item_group,) = item2.groups.all()
             with self.assertRaisesMessage(
-                MissingRelationField,
-                "Access to 'user_permissions' ManyToMany manager attribute on User was prevented because it was not selected.\nProbably missing from prefetch_related()",
+                MissingManyToManyField,
+                "Access to `RelatedGroupForNesting.nested.all()` was prevented.\n"
+                "To fetch the `NestedGroup` objects, add `prefetch_related('nested')` to the query where `RelatedGroupForNesting` objects are selected.",
             ):
                 item_group.nested.all()
 
@@ -242,5 +244,5 @@ class MultipleManyToManyTestCase(TestCase):
         with self.assertNumQueries(3):
             i = self.Thing.objects.prefetch_related("relatable", "unrelatable").get(pk=thing.pk)
         with self.assertNumQueries(0):
-            tuple(i.user_set.all())
-            tuple(i.permissions.all())
+            tuple(i.relatable.all())
+            tuple(i.unrelatable.all())

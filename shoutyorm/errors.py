@@ -14,6 +14,10 @@ class MissingForeignKeyField(MissingRelationField):
     pass
 
 
+class MissingManyToManyField(MissingRelationField):
+    pass
+
+
 class MissingOneToOneField(MissingRelationField):
     pass
 
