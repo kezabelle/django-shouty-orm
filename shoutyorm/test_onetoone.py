@@ -207,3 +207,49 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
             self.assertEqual(side_b.title, "Side B!")
             side_b.pk
             side_b.woo_side_a.pk
+
+    def test_objects_create(self):
+        """
+        If you have the remote side of a onetoone, and the related object (here cassette side A)
+        is filled in after the fact, whether it's OK or raises is dependent.
+
+        Or do I just wish it to always raise if given by ID? IDK.
+        """
+        side_b1 = self.CassetteSideB.objects.create(title="Side B!")
+        self.CassetteSideA.objects.create(title="Side A!", side_b=side_b1)
+        # Already cached, no query
+        with self.assertNumQueries(0):
+            self.assertEqual(side_b1.woo_side_a.title, "Side A!")
+
+        side_b2 = self.CassetteSideB.objects.create(title="Side B!")
+        self.CassetteSideA.objects.create(
+            title="Side A!",
+            side_b_id=side_b2.pk,
+        )
+        # Not cached, set via <field>_id, needs fetching
+        with self.assertNumQueries(1):
+            self.assertEqual(side_b2.woo_side_a.title, "Side A!")
+
+    def test_model_create(self):
+        """
+        If you have the remote side of a onetoone, and the related object (here cassette side A)
+        is filled in after the fact, whether it's OK or raises is dependent.
+
+        Or do I just wish it to always raise if given by ID? IDK.
+        """
+        side_b1 = self.CassetteSideB(title="Side B!")
+        side_b1.save()
+        self.CassetteSideA.objects.create(title="Side A!", side_b=side_b1)
+        # Already cached, no query
+        with self.assertNumQueries(0):
+            self.assertEqual(side_b1.woo_side_a.title, "Side A!")
+
+        side_b2 = self.CassetteSideB(title="Side B!")
+        side_b2.save()
+        self.CassetteSideA.objects.create(
+            title="Side A!",
+            side_b_id=side_b2.pk,
+        )
+        # Not cached, set via <field>_id, needs fetching
+        with self.assertNumQueries(1):
+            self.assertEqual(side_b2.woo_side_a.title, "Side A!")

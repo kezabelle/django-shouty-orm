@@ -200,8 +200,21 @@ def new_reverse_onetoone_descriptor_get(self, instance, cls=None):
         # Start to track how much has been lazily acquired. By default they should
         # all be False.
         escape_hatch_key = "allow_lazy:{}".format(self.related.get_accessor_name())
-        if escape_hatch_key not in instance._state.fields_cache:
-            instance._state.fields_cache[escape_hatch_key] = False
+        # This ties in with `new_model_save_base`.
+        # If we just created an instance via MyModel.objects.create() or MyModel(...).save()
+        # we (by necessity) have to allow fetches for related data, at least until the next
+        # Model.save()
+        # Note that this is a special case for when <field>_id is passed instead of <field> itself.
+        # In the latter case, the value will already be OK via is_cached() and won't hit this.
+        #
+        # Realistically, preventing the query that would follow doesn't achieve
+        # anything in the <field>_id scenario anyway, because you'd just be shifting
+        # to getting the object ahead of time. So it'd be +-0 queries changed in total.
+        #
+        # This additionally allows a query if you have the remote side of the onetoone,
+        # create the 'other' side afterwards, and then try and access the 'other' side.
+        just_created = getattr(instance._state, "_shouty_just_added", False)
+        instance._state.fields_cache[escape_hatch_key] = just_created
 
         # If we encounter an escape hatch of `_shouty_<field>` = 2 it means
         # we want to allow 2 lazy attribute requests to the field.
