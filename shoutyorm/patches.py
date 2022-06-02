@@ -1,5 +1,5 @@
 try:
-    from typing import Optional, Text, Any, NoReturn
+    from typing import Optional, Text, Any, NoReturn, Iterable
 except ImportError:  # pragma: no cover
     pass
 
@@ -60,6 +60,10 @@ old_manytomany_descriptor_get = ManyToManyDescriptor.__get__
 # This ... MIGHT ... also patch the ForwardOneToOneDescriptor as that ultimately
 # subclasses the ManyToOne and calls super().get_object() but I've not tested it.
 old_foreignkey_descriptor_get_object = ForwardManyToOneDescriptor.get_object
+
+
+# ...
+old_model_save_base = Model.save_base
 
 
 def new_deferredattribute_check_parent_chain(self, instance, name=None):
@@ -215,19 +219,30 @@ def new_reverse_onetoone_descriptor_get(self, instance, cls=None):
     try:
         self.related.get_cached_value(instance)
     except KeyError:
-        exception = MissingOneToOneField(
-            "Access to `{cls}.{attr}` was prevented.\n"
-            "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
-                attr=self.related.get_accessor_name(),
-                cls=instance.__class__.__name__,
-                # x_related_name=other_side.get_accessor_name() or "...",
-                x_related_name=self.related.get_accessor_name() or "...",
-                remote_cls=self.related.remote_field.model.__name__,
+        # Start to track how much has been lazily acquired. By default they should
+        # all be False.
+        escape_hatch_key = "allow_lazy:{}".format(self.related.get_accessor_name())
+        if escape_hatch_key not in instance._state.fields_cache:
+            instance._state.fields_cache[escape_hatch_key] = False
+
+        # If we encounter an escape hatch of `_shouty_<field>` = 2 it means
+        # we want to allow 2 lazy attribute requests to the field.
+        if instance._state.fields_cache[escape_hatch_key] is False:
+            exception = MissingOneToOneField(
+                "Access to `{cls}.{attr}` was prevented.\n"
+                "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
+                    attr=self.related.get_accessor_name(),
+                    cls=instance.__class__.__name__,
+                    # x_related_name=other_side.get_accessor_name() or "...",
+                    x_related_name=self.related.get_accessor_name() or "...",
+                    remote_cls=self.related.remote_field.model.__name__,
+                )
             )
-        )
-        # supress KeyError from chain
-        exception.__cause__ = None
-        raise exception
+            # supress KeyError from chain
+            exception.__cause__ = None
+            raise exception
+        # We didn't raise, so lets fetch and disable it subsequently.
+        instance._state.fields_cache[escape_hatch_key] = False
     return old_reverse_onetoone_descriptor_get(self, instance, cls)
 
 
@@ -304,7 +319,7 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
 
 
 def new_foreignkey_descriptor_get_object(self, instance):
-    # type: (ForwardManyToOneDescriptor, Model) -> None
+    # type: (ForwardManyToOneDescriptor, Model) -> Model
     """
     This covers both OneToOneField and ForeignKey forward references.
 
@@ -339,21 +354,79 @@ def new_foreignkey_descriptor_get_object(self, instance):
     # TODO: this could fail too?
     # their_pk = getattr(instance, self.field.get_attname(), None)
 
-    exception = exception_class(
-        "Access to `{cls}.{attr}` was prevented.\n"
-        "If you only need access to the column identifier, use `{cls}.{field_column}` instead.\n"
-        "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
-            attr=self.field.get_cache_name(),
-            cls=instance.__class__.__name__,
-            field_column=self.field.get_attname(),
-            # x_related_name=other_side.get_accessor_name() or "...",
-            x_related_name=self.field.get_cache_name() or "...",
-            remote_cls=self.field.remote_field.model.__name__,
+    # Start tro track how much has been lazily acquired. By default they should
+    # all be zero.
+    escape_hatch_key = "allow_lazy:{}".format(self.field.get_cache_name())
+    if escape_hatch_key not in instance._state.fields_cache:
+        instance._state.fields_cache[escape_hatch_key] = False
+
+    # This ties in with `new_model_save_base`.
+    # If we just created an instance via MyModel.objects.create() or MyModel(...).save()
+    # we (by necessity) have to allow fetches for related data, at least until the next
+    # Model.save()
+    # Note that this is a special case for when <field>_id is passed instead of <field> itself.
+    # In the latter case, the value will already be OK via is_cached() and won't hit this.
+    #
+    # Realistically, preventing the query that would follow doesn't achieve
+    # anything in the <field>_id scenario anyway, because you'd just be shifting
+    # to getting the object ahead of time. So it'd be +-0 queries changed in total.
+    just_created = getattr(instance._state, "_shouty_just_added", False)
+    instance._state.fields_cache[escape_hatch_key] = just_created
+
+    if instance._state.fields_cache[escape_hatch_key] is False:
+        exception = exception_class(
+            "Access to `{cls}.{attr}` was prevented.\n"
+            "If you only need access to the column identifier, use `{cls}.{field_column}` instead.\n"
+            "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
+                attr=self.field.get_cache_name(),
+                cls=instance.__class__.__name__,
+                field_column=self.field.get_attname(),
+                # x_related_name=other_side.get_accessor_name() or "...",
+                x_related_name=self.field.get_cache_name() or "...",
+                remote_cls=self.field.remote_field.model.__name__,
+            )
         )
+        # supress KeyError from ForwardManyToOneDescriptor.__get__ via FieldCacheMixin.get_cached_value
+        exception.__cause__ = None
+        raise exception
+    # OK we're allowing +1 lazy access, to account for <field>_id
+    # Reduce our expected allowance again.
+    instance._state.fields_cache[escape_hatch_key] = False
+    related_instance = old_foreignkey_descriptor_get_object(self, instance)
+    return related_instance
+
+
+def new_model_save_base(
+    self, raw=False, force_insert=False, force_update=False, using=None, update_fields=None
+):
+    # type: (Model, bool, bool, bool, Optional[str], Optional[Iterable[str]])-> None
+    """
+    This is used to establish whether we've just created a model via
+    MyModel.objects.create() or MyModel(...).save()
+    This is necessary because we may have passed in a group_id (or whatever)
+    instead of a group instance, but would then like to use the related object
+    subsequently without getting an exception (we literally cannot fetch it as
+    a select_related/prefetch_related call, because the INSERT won't include
+    the related data during RETURNING).
+
+    Realistically, preventing the query that would follow doesn't achieve
+    anything in the <field>_id scenario anyway, because you'd just be shifting
+    to getting the object ahead of time. So it'd be +-0 queries changed in total.
+    """
+    adding = self._state.adding is True
+    result = old_model_save_base(
+        self,
+        raw=raw,
+        force_insert=force_insert,
+        force_update=force_update,
+        using=using,
+        update_fields=update_fields,
     )
-    # supress KeyError from ForwardManyToOneDescriptor.__get__ via FieldCacheMixin.get_cached_value
-    exception.__cause__ = None
-    raise exception
+    added = self._state.adding is False
+    # On the second save (after the first for creation), this should fall back
+    # to False, at which point further related attribute access may be prevented again.
+    self._state._shouty_just_added = adding is True and added is True
+    return result
 
 
 def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
@@ -393,6 +466,11 @@ def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
         if patched_manytomany is False:
             ManyToManyDescriptor.__get__ = new_manytomany_descriptor_get
             ManyToManyDescriptor._shouty = True
+
+        patched_save_base = getattr(Model, "_shouty", False)
+        if patched_save_base is False:
+            Model.save_base = new_model_save_base
+            Model._shouty = True
 
     if invalid_reverse_relations is True:
         patched_reverse_onetone = getattr(ReverseOneToOneDescriptor, "_shouty", False)

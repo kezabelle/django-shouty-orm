@@ -69,6 +69,50 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
             (user,) = self.User.objects.select_related("role").all()
             self.assertEqual(user.role.title, "Not quite admin")
 
+    def test_objects_create(self):
+        """
+        Creating with .create(<field>_id) and then using <field> later is OK
+
+        Required patching Model.save_base to track whether an instance was freshly
+        minted or not.
+        """
+        user = self.User.objects.create(name="user!", role=self.Role.objects.create(title="admin"))
+        # Already cached, no query
+        with self.assertNumQueries(0):
+            self.assertEqual(user.role.title, "admin")
+
+        role2 = self.Role.objects.create(title="admin 2")
+        user2 = self.User.objects.create(
+            name="user 2!",
+            role_id=role2.pk,
+        )
+        # Not cached, set via <field>_id, needs fetching
+        with self.assertNumQueries(1):
+            self.assertEqual(user2.role.title, "admin 2")
+
+    def test_model_create(self):
+        """
+        Creating with Model(<field>_id).save() and then using <field> later is OK
+
+        Required patching Model.save_base to track whether an instance was freshly
+        minted or not.
+        """
+        user = self.User(name="user!", role=self.Role.objects.create(title="admin"))
+        user.save()
+        # Already cached, no query
+        with self.assertNumQueries(0):
+            self.assertEqual(user.role.title, "admin")
+
+        role2 = self.Role.objects.create(title="admin 2")
+        user2 = self.User(
+            name="user 2!",
+            role_id=role2.pk,
+        )
+        user2.save()
+        # Not cached, set via <field>_id, needs fetching
+        with self.assertNumQueries(1):
+            self.assertEqual(user2.role.title, "admin 2")
+
 
 class ReverseForeignKeyDescriptorTestCase(TestCase):
     @classmethod

@@ -7,6 +7,10 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
         # type: () -> None
+
+        class CassetteNullRelation(models.Model):
+            pass
+
         class CassetteSideB(models.Model):
             title = models.CharField(max_length=100)
 
@@ -18,9 +22,15 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
                 db_column="yay_side_b",
                 related_name="woo_side_a",
             )
+            nullable_thing = models.OneToOneField(
+                CassetteNullRelation,
+                on_delete=models.SET_NULL,
+                null=True,
+            )
 
         try:
             with connection.schema_editor() as editor:
+                editor.create_model(CassetteNullRelation)
                 editor.create_model(CassetteSideB)
                 editor.create_model(CassetteSideA)
         except DatabaseError as exc:
@@ -71,6 +81,58 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         with self.assertNumQueries(0):
             self.assertEqual(side_a.side_b.title, "Side B!")
             self.assertEqual(side_a.title, "Side A!")
+
+    def test_objects_create(self):
+        """
+        Creating with .create(<field>_id) and then using <field> later is OK
+
+        Required patching Model.save_base to track whether an instance was freshly
+        minted or not.
+        """
+        side_a1 = self.CassetteSideA.objects.create(
+            title="Side A!", side_b=self.CassetteSideB.objects.create(title="Side B!")
+        )
+        # Already cached, no query
+        with self.assertNumQueries(0):
+            self.assertEqual(side_a1.side_b.title, "Side B!")
+
+        side_b2 = self.CassetteSideB.objects.create(title="Side B!")
+        side_a2 = self.CassetteSideA.objects.create(
+            title="Side A!",
+            side_b_id=side_b2.pk,
+            nullable_thing_id=None,
+        )
+        # Not cached, set via <field>_id, needs fetching
+        with self.assertNumQueries(1):
+            self.assertEqual(side_a2.side_b.title, "Side B!")
+            self.assertIsNone(side_a2.nullable_thing)
+
+    def test_model_create(self):
+        """
+        Creating with Model(<field>_id).save() and then using <field> later is OK
+
+        Required patching Model.save_base to track whether an instance was freshly
+        minted or not.
+        """
+        side_a1 = self.CassetteSideA(
+            title="Side A!", side_b=self.CassetteSideB.objects.create(title="Side B!")
+        )
+        side_a1.save()
+        # Already cached, no query
+        with self.assertNumQueries(0):
+            self.assertEqual(side_a1.side_b.title, "Side B!")
+
+        side_b2 = self.CassetteSideB.objects.create(title="Side B!")
+        side_a2 = self.CassetteSideA(
+            title="Side A!",
+            side_b_id=side_b2.pk,
+            nullable_thing_id=None,
+        )
+        side_a2.save()
+        # Not cached, set via <field>_id, needs fetching
+        with self.assertNumQueries(1):
+            self.assertEqual(side_a2.side_b.title, "Side B!")
+            self.assertIsNone(side_a2.nullable_thing)
 
 
 class ReverseOneToOneDescriptorTestCase(TestCase):
