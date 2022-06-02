@@ -1,26 +1,34 @@
-class ShoutyAttributeError(AttributeError):
-    pass
+class ShoutyAttributeError(Exception):
+    """
+    Whilst this should technically be an AttributeError, there's more likelihood
+    of people having done `try: ...lots of stuf ... except AttributeError: ...`
+    than there is `try: ... except Exception: ...` and if they have done the latter
+    well goodness there's nothing I can do to save them.
+    """
+
+    __slots__ = ()
 
 
 class MissingLocalField(ShoutyAttributeError):
-    pass
+    __slots__ = ()
 
 
 class MissingRelationField(ShoutyAttributeError):
-    pass
+    __slots__ = ()
 
 
 class MissingForeignKeyField(MissingRelationField):
-    pass
+    __slots__ = ()
 
 
 class MissingManyToManyField(MissingRelationField):
-    pass
+    __slots__ = ()
 
 
 class MissingOneToOneField(MissingRelationField):
-    pass
+    __slots__ = ()
 
 
 class MissingReverseRelationField(MissingRelationField):
-    pass
+    __slots__ = ()
+
