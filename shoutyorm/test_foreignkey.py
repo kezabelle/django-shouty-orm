@@ -247,3 +247,33 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
 
         with self.assertNumQueries(1):
             self.assertEqual(role.users.count(), 1)
+
+    def test_filtering_etc_when_cached(self):
+        # type: () -> None
+        """
+        Ideally, trying to do another query after prefetching shoud be caught.
+
+        However, this is problematic, because there's legitimate times when you
+        might wish to do::
+
+            myobj.related.filter(...).exists()
+
+        without having prefetched, you're just looking to narrow it further, right?
+
+        And additionally you can escape from any manager level patch by doing::
+
+            myobj.related.all().filter(...).exists()
+
+        which again, you'd maybe want to allow if you don't otherwise want the
+        intermediate data (the related themselves).
+        """
+        self.User.objects.create(
+            name="Bert", role=self.Role.objects.create(title="Not quite admin")
+        )
+        with self.assertNumQueries(2):
+            (role,) = self.Role.objects.prefetch_related("users").all()
+
+        with self.assertNumQueries(1):
+            self.assertTrue(role.users.filter(pk=role.pk).exists())
+        with self.assertNumQueries(1):
+            self.assertTrue(role.users.all().filter(pk=role.pk).exists())
