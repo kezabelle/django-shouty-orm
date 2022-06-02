@@ -223,3 +223,27 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             self.assertIsNotNone(role.users.first())
         with self.assertNumQueries(1):
             self.assertIsNotNone(role.users.last())
+
+    def test_count_when_prefetched(self):
+        # type: () -> None
+        """count shouldn't be affected"""
+        self.User.objects.create(
+            name="Bert", role=self.Role.objects.create(title="Not quite admin")
+        )
+        with self.assertNumQueries(2):
+            (role,) = self.Role.objects.prefetch_related("users").all()
+
+        with self.assertNumQueries(0):
+            self.assertEqual(role.users.count(), 1)
+
+    def test_count_when_not_prefetched(self):
+        # type: () -> None
+        """count shouldn't be affected"""
+        self.User.objects.create(
+            name="Bert", role=self.Role.objects.create(title="Not quite admin")
+        )
+        with self.assertNumQueries(1):
+            (role,) = self.Role.objects.all()
+
+        with self.assertNumQueries(1):
+            self.assertEqual(role.users.count(), 1)
