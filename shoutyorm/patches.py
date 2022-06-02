@@ -25,46 +25,6 @@ from shoutyorm.errors import (
 # bit which would cause a query for unselected fields.
 old_deferredattribute_check_parent_chain = DeferredAttribute._check_parent_chain
 
-# This is when you do "mymodel.myothermodel_set.all()" where the foreignkey
-# exists on "MyOtherModel" and POINTS to "MyModel"
-#
-# In an ideal world I'd patch get_queryset() directly, but that's used by
-# the get_prefetch_queryset() implementations and I don't know the ramifications
-# of doing so, so instead we're going to proxy the "public" API.
-old_reverse_foreignkey_descriptor_get = ReverseManyToOneDescriptor.__get__
-
-
-# This is when you do "mymodel.myfield" where "myfield" is a OneToOneField
-# on MyOtherModel which points back to MyModel
-#
-# In an ideal world I'd patch get_queryset() directly, but that's used by
-# the get_prefetch_queryset() implementations and I don't know the ramifications
-# of doing so, so instead we're going to proxy the "public" API.
-old_reverse_onetoone_descriptor_get = ReverseOneToOneDescriptor.__get__
-
-
-# This is used when you have mymodel.m2m.all() where m2m is a ManyToManyField
-# because of the way this descriptor's related manager is set up, in combination
-# with the way prefetching works (get_prefetch_queryset, get the manager, get_queryset, etc)
-# This is the best entry point I could find.
-old_manytomany_descriptor_get = ManyToManyDescriptor.__get__
-
-
-# This is when you do "mymodel.myfield" where "myfield" is a ForeignKey
-# on the "MyModel" class
-#
-# As far as I can tell it's safe to patch get_object() directly here instead
-# of __get__ as I have for the other ones, because get_object()
-# solely does the database querying, and nothing else.
-#
-# This ... MIGHT ... also patch the ForwardOneToOneDescriptor as that ultimately
-# subclasses the ManyToOne and calls super().get_object() but I've not tested it.
-old_foreignkey_descriptor_get_object = ForwardManyToOneDescriptor.get_object
-
-
-# ...
-old_model_save_base = Model.save_base
-
 
 def new_deferredattribute_check_parent_chain(self, instance, name=None):
     # type: (DeferredAttribute, Model, Optional[Text]) -> Any
@@ -107,6 +67,15 @@ def new_deferredattribute_check_parent_chain(self, instance, name=None):
         exception.__cause__ = None
         raise exception
     return val
+
+
+# This is when you do "mymodel.myothermodel_set.all()" where the foreignkey
+# exists on "MyOtherModel" and POINTS to "MyModel"
+#
+# In an ideal world I'd patch get_queryset() directly, but that's used by
+# the get_prefetch_queryset() implementations and I don't know the ramifications
+# of doing so, so instead we're going to proxy the "public" API.
+old_reverse_foreignkey_descriptor_get = ReverseManyToOneDescriptor.__get__
 
 
 def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
@@ -189,6 +158,15 @@ def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
     return manager
 
 
+# This is when you do "mymodel.myfield" where "myfield" is a OneToOneField
+# on MyOtherModel which points back to MyModel
+#
+# In an ideal world I'd patch get_queryset() directly, but that's used by
+# the get_prefetch_queryset() implementations and I don't know the ramifications
+# of doing so, so instead we're going to proxy the "public" API.
+old_reverse_onetoone_descriptor_get = ReverseOneToOneDescriptor.__get__
+
+
 def new_reverse_onetoone_descriptor_get(self, instance, cls=None):
     # type: (ReverseOneToOneDescriptor, Model, None) -> Any
     """
@@ -244,6 +222,13 @@ def new_reverse_onetoone_descriptor_get(self, instance, cls=None):
         # We didn't raise, so lets fetch and disable it subsequently.
         instance._state.fields_cache[escape_hatch_key] = False
     return old_reverse_onetoone_descriptor_get(self, instance, cls)
+
+
+# This is used when you have mymodel.m2m.all() where m2m is a ManyToManyField
+# because of the way this descriptor's related manager is set up, in combination
+# with the way prefetching works (get_prefetch_queryset, get the manager, get_queryset, etc)
+# This is the best entry point I could find.
+old_manytomany_descriptor_get = ManyToManyDescriptor.__get__
 
 
 def new_manytomany_descriptor_get(self, instance, cls=None):
@@ -316,6 +301,15 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
 
         manager.all = partial_prefetched_all.__get__(manager)
     return manager
+
+
+# This is when you do "mymodel.myfield" where "myfield" is a ForeignKey
+# on the "MyModel" class
+#
+# As far as I can tell it's safe to patch get_object() directly here instead
+# of __get__ as I have for the other ones, because get_object()
+# solely does the database querying, and nothing else.
+old_foreignkey_descriptor_get_object = ForwardManyToOneDescriptor.get_object
 
 
 def new_foreignkey_descriptor_get_object(self, instance):
@@ -394,6 +388,11 @@ def new_foreignkey_descriptor_get_object(self, instance):
     instance._state.fields_cache[escape_hatch_key] = False
     related_instance = old_foreignkey_descriptor_get_object(self, instance)
     return related_instance
+
+
+# This is used to establish whether we've just created a model via
+# MyModel.objects.create() or MyModel(...).save()
+old_model_save_base = Model.save_base
 
 
 def new_model_save_base(
