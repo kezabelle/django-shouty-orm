@@ -1,6 +1,10 @@
 from django.db import models, connection, DatabaseError
 from django.test import TestCase
-from shoutyorm.errors import MissingForeignKeyField, MissingReverseRelationField
+from shoutyorm.errors import (
+    MissingForeignKeyField,
+    MissingReverseRelationField,
+    NoMoreFilteringAllowed,
+)
 
 from django import VERSION as DJANGO_VERSION
 
@@ -277,3 +281,38 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             self.assertTrue(role.users.filter(pk=role.pk).exists())
         with self.assertNumQueries(1):
             self.assertTrue(role.users.all().filter(pk=role.pk).exists())
+
+    def test_filter_and_exclude_and_annotate_when_prefetched(self):
+        # type: () -> None
+        """count shouldn't be affected"""
+        self.User.objects.create(
+            name="Bert", role=self.Role.objects.create(title="Not quite admin")
+        )
+        with self.assertNumQueries(2):
+            (role,) = self.Role.objects.prefetch_related("users").all()
+
+        with self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `ReversableRole.users.filter(...)` was prevented because of previous `prefetch_related('users')`\n"
+            "Filter existing objects in memory with `[reversableuser for reversableuser in ReversableRole.users.all() if reversableuser ...]\n"
+            "Filter new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk, ...)` for clarity.",
+        ):
+            (user,) = role.users.filter(name="Bert")
+
+        with self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `ReversableRole.users.exclude(...)` was prevented because of previous `prefetch_related('users')`\n"
+            "Exclude existing objects in memory with `[reversableuser for reversableuser in ReversableRole.users.all() if reversableuser ...]\n"
+            "Exclude new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk).exclude(...)` for clarity.",
+        ):
+            (user,) = role.users.exclude(name="Bert1")
+
+        with self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `ReversableRole.users.annotate(...)` was prevented because of previous `prefetch_related('users')`\n"
+            "Annotate existing objects in memory with `for reversableuser in ReversableRole.users.all(): reversableuser.xyz = ...\n"
+            "Annotate new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk).annotate(...)` for clarity.",
+        ):
+            (user,) = role.users.annotate(
+                name=models.Value(True, output_field=models.BooleanField())
+            )

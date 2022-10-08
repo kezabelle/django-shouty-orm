@@ -21,6 +21,24 @@ settings.configure(
 )
 django.setup()
 
+# from shoutyorm.test_onetoone import (
+#     ForwardOneToOneDescriptorTestCase,
+#     ReverseOneToOneDescriptorTestCase,
+# )
+# from shoutyorm.test_foreignkey import (
+#     ForwardForeignKeyDescriptorTestCase,
+#     ReverseForeignKeyDescriptorTestCase,
+# )
+# from shoutyorm.test_manytomany import (
+#     ManyToManyTestCase,
+#     NestedManyToManyTestCase,
+#     MultipleManyToManyTestCase,
+# )
+# from shoutyorm.test_only_defer import OnlyDeferTestCase
+# from shoutyorm.test_forms import FormTestCase
+# from shoutyorm.test_templates import TemplateTestCase
+
+
 test_runner = DiscoverRunner(interactive=False, verbosity=2)
 failures = test_runner.run_tests(
     test_labels=[],

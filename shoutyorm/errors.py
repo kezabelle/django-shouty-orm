@@ -32,3 +32,6 @@ class MissingOneToOneField(MissingRelationField):
 class MissingReverseRelationField(MissingRelationField):
     __slots__ = ()
 
+
+class NoMoreFilteringAllowed(ShoutyAttributeError):
+    __slots__ = ()
