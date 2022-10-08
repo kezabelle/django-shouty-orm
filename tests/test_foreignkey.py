@@ -38,6 +38,7 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class User(models.Model):
             name = models.CharField(max_length=100)
@@ -47,6 +48,7 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:
@@ -153,12 +155,14 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class OtherThing(models.Model):
             role = models.ForeignKey(ReversableRole, on_delete=models.SET_NULL, null=True)
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class ReversableUser(models.Model):
             name = models.CharField(max_length=100)
@@ -172,6 +176,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:

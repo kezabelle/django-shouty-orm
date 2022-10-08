@@ -34,6 +34,7 @@ class OnlyDeferTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class Item(models.Model):
             title = models.CharField(max_length=100)
@@ -48,6 +49,7 @@ class OnlyDeferTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:

@@ -37,6 +37,7 @@ class ManyToManyTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class M2MItem(models.Model):
             title = models.CharField(max_length=100)
@@ -44,6 +45,7 @@ class ManyToManyTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:
@@ -103,6 +105,7 @@ class NestedManyToManyTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class RelatedGroupForNesting(models.Model):
             title = models.CharField(max_length=100)
@@ -110,6 +113,7 @@ class NestedManyToManyTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class NestedItem(models.Model):
             title = models.CharField(max_length=100)
@@ -117,6 +121,7 @@ class NestedManyToManyTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:
@@ -247,12 +252,14 @@ class MultipleManyToManyTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class RelatedThing1(models.Model):
             title = models.CharField(max_length=100)
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class Thing(models.Model):
             title = models.CharField(max_length=100)
@@ -261,6 +268,7 @@ class MultipleManyToManyTestCase(TestCase):
 
             class Meta:
                 app_label = "shoutyorm"
+                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:
