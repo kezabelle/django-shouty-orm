@@ -1,6 +1,28 @@
+import django
+from django.conf import settings
 from django.db import models, connection, DatabaseError
 from django.test import TestCase
 from shoutyorm.errors import MissingOneToOneField
+
+if not settings.configured:
+    settings.configure(
+        SECRET_KEY="shoutyorm-runtests" * 10,
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        INSTALLED_APPS=("shoutyorm",),
+        MIDDLEWARE=(),
+        TEMPLATES=[
+            {
+                "BACKEND": "django.template.backends.django.DjangoTemplates",
+                "DIRS": [],
+                "APP_DIRS": True,
+                "OPTIONS": {"context_processors": ()},
+            },
+        ],
+        SHOUTY_LOCAL_FIELDS=True,
+        SHOUTY_RELATION_FIELDS=True,
+        SHOUTY_RELATION_REVERSE_FIELDS=True,
+    )
+    django.setup()
 
 
 class ForwardOneToOneDescriptorTestCase(TestCase):
@@ -9,10 +31,14 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # type: () -> None
 
         class CassetteNullRelation(models.Model):
-            pass
+            class Meta:
+                app_label = "shoutyorm"
 
         class CassetteSideB(models.Model):
             title = models.CharField(max_length=100)
+
+            class Meta:
+                app_label = "shoutyorm"
 
         class CassetteSideA(models.Model):
             title = models.CharField(max_length=100)
@@ -27,6 +53,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
                 on_delete=models.SET_NULL,
                 null=True,
             )
+
+            class Meta:
+                app_label = "shoutyorm"
 
         try:
             with connection.schema_editor() as editor:
@@ -142,6 +171,9 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
         class RewindingCassetteSideB(models.Model):
             title = models.CharField(max_length=100)
 
+            class Meta:
+                app_label = "shoutyorm"
+
         class RewindingCassetteSideA(models.Model):
             title = models.CharField(max_length=100)
             side_b = models.OneToOneField(
@@ -150,6 +182,9 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
                 db_column="yay_side_b",
                 related_name="woo_side_a",
             )
+
+            class Meta:
+                app_label = "shoutyorm"
 
         try:
             with connection.schema_editor() as editor:

@@ -1,6 +1,28 @@
+import django
+from django.conf import settings
 from django.test import TestCase
 from django.db import models, connection, DatabaseError
 from shoutyorm.errors import MissingForeignKeyField, MissingLocalField
+
+if not settings.configured:
+    settings.configure(
+        SECRET_KEY="shoutyorm-runtests" * 10,
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        INSTALLED_APPS=("shoutyorm",),
+        MIDDLEWARE=(),
+        TEMPLATES=[
+            {
+                "BACKEND": "django.template.backends.django.DjangoTemplates",
+                "DIRS": [],
+                "APP_DIRS": True,
+                "OPTIONS": {"context_processors": ()},
+            },
+        ],
+        SHOUTY_LOCAL_FIELDS=True,
+        SHOUTY_RELATION_FIELDS=True,
+        SHOUTY_RELATION_REVERSE_FIELDS=True,
+    )
+    django.setup()
 
 
 class OnlyDeferTestCase(TestCase):
@@ -9,6 +31,9 @@ class OnlyDeferTestCase(TestCase):
         # type: () -> None
         class RelatedThing(models.Model):
             title = models.CharField(max_length=100)
+
+            class Meta:
+                app_label = "shoutyorm"
 
         class Item(models.Model):
             title = models.CharField(max_length=100)
@@ -20,6 +45,9 @@ class OnlyDeferTestCase(TestCase):
                 db_column="related_thingie",
                 related_name="related_things",
             )
+
+            class Meta:
+                app_label = "shoutyorm"
 
         try:
             with connection.schema_editor() as editor:

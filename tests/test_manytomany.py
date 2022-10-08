@@ -1,9 +1,31 @@
+import django
+from django.conf import settings
 from django.test import TestCase
 from django.db import models, connection, DatabaseError
 
 from django import VERSION as DJANGO_VERSION
 from shoutyorm import MissingRelationField
 from shoutyorm.errors import MissingManyToManyField
+
+if not settings.configured:
+    settings.configure(
+        SECRET_KEY="shoutyorm-runtests" * 10,
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        INSTALLED_APPS=("shoutyorm",),
+        MIDDLEWARE=(),
+        TEMPLATES=[
+            {
+                "BACKEND": "django.template.backends.django.DjangoTemplates",
+                "DIRS": [],
+                "APP_DIRS": True,
+                "OPTIONS": {"context_processors": ()},
+            },
+        ],
+        SHOUTY_LOCAL_FIELDS=True,
+        SHOUTY_RELATION_FIELDS=True,
+        SHOUTY_RELATION_REVERSE_FIELDS=True,
+    )
+    django.setup()
 
 
 class ManyToManyTestCase(TestCase):
@@ -13,9 +35,15 @@ class ManyToManyTestCase(TestCase):
         class RelatedGroup(models.Model):
             title = models.CharField(max_length=100)
 
+            class Meta:
+                app_label = "shoutyorm"
+
         class M2MItem(models.Model):
             title = models.CharField(max_length=100)
             groups = models.ManyToManyField(RelatedGroup)
+
+            class Meta:
+                app_label = "shoutyorm"
 
         try:
             with connection.schema_editor() as editor:
@@ -73,13 +101,22 @@ class NestedManyToManyTestCase(TestCase):
         class NestedGroup(models.Model):
             title = models.CharField(max_length=100)
 
+            class Meta:
+                app_label = "shoutyorm"
+
         class RelatedGroupForNesting(models.Model):
             title = models.CharField(max_length=100)
             nested = models.ManyToManyField(NestedGroup)
 
+            class Meta:
+                app_label = "shoutyorm"
+
         class NestedItem(models.Model):
             title = models.CharField(max_length=100)
             groups = models.ManyToManyField(RelatedGroupForNesting)
+
+            class Meta:
+                app_label = "shoutyorm"
 
         try:
             with connection.schema_editor() as editor:
@@ -208,13 +245,22 @@ class MultipleManyToManyTestCase(TestCase):
         class RelatedThing2(models.Model):
             title = models.CharField(max_length=100)
 
+            class Meta:
+                app_label = "shoutyorm"
+
         class RelatedThing1(models.Model):
             title = models.CharField(max_length=100)
+
+            class Meta:
+                app_label = "shoutyorm"
 
         class Thing(models.Model):
             title = models.CharField(max_length=100)
             relatable = models.ManyToManyField(RelatedThing1)
             unrelatable = models.ManyToManyField(RelatedThing2)
+
+            class Meta:
+                app_label = "shoutyorm"
 
         try:
             with connection.schema_editor() as editor:

@@ -3,9 +3,10 @@
 import sys
 import os
 from setuptools import setup
+
 if sys.version_info[0] == 2:
     # get the Py3K compatible `encoding=` for opening files.
-	from io import open
+    from io import open
 
 
 HERE = os.path.abspath(os.path.dirname(__file__))
@@ -19,10 +20,13 @@ def make_readme(root_path):
             with open(filepath, mode="r", encoding="utf-8") as f:
                 yield f.read()
 
+
 LICENSE = "BSD License"
 URL = "https://github.com/kezabelle/django-shouty-orm"
 LONG_DESCRIPTION = "\r\n\r\n----\r\n\r\n".join(make_readme(HERE))
-SHORT_DESCRIPTION = "Applies a monkeypatch which forces Django's ORM to error far more loudly in certain cases"
+SHORT_DESCRIPTION = (
+    "Applies a monkeypatch which forces Django's ORM to error far more loudly in certain cases"
+)
 KEYWORDS = (
     "django",
     "orm",
@@ -42,7 +46,10 @@ setup(
     packages=[],
     py_modules=["shoutyorm"],
     include_package_data=True,
-    install_requires=["Django>=2.2", "wrapt>=1.11",],
+    install_requires=[
+        "Django>=2.2",
+        "wrapt>=1.11",
+    ],
     zip_safe=False,
     keywords=" ".join(KEYWORDS),
     license=LICENSE,

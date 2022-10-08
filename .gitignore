@@ -6,3 +6,4 @@ dist
 .mypy_cache
 build/*
 shoutyorm/__pycache__
+tests/__pycache__

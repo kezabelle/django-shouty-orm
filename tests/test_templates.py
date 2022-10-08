@@ -1,3 +1,5 @@
+import django
+from django.conf import settings
 from django.db import models, connection, DatabaseError
 from django.test import TestCase
 from django.template import Template, Context
@@ -9,6 +11,26 @@ from shoutyorm.errors import (
     MissingReverseRelationField,
     ShoutyAttributeError,
 )
+
+if not settings.configured:
+    settings.configure(
+        SECRET_KEY="shoutyorm-runtests" * 10,
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        INSTALLED_APPS=("shoutyorm",),
+        MIDDLEWARE=(),
+        TEMPLATES=[
+            {
+                "BACKEND": "django.template.backends.django.DjangoTemplates",
+                "DIRS": [],
+                "APP_DIRS": True,
+                "OPTIONS": {"context_processors": ()},
+            },
+        ],
+        SHOUTY_LOCAL_FIELDS=True,
+        SHOUTY_RELATION_FIELDS=True,
+        SHOUTY_RELATION_REVERSE_FIELDS=True,
+    )
+    django.setup()
 
 
 class TemplateTestCase(TestCase):  # type: ignore
@@ -28,13 +50,22 @@ class TemplateTestCase(TestCase):  # type: ignore
             username = models.CharField(max_length=100)
             email = models.CharField(max_length=100)
 
+            class Meta:
+                app_label = "shoutyorm"
+
         class FakeTemplateContentType(models.Model):
             title = models.CharField(max_length=100)
+
+            class Meta:
+                app_label = "shoutyorm"
 
         class FakeTemplatePermission(models.Model):
             title = models.CharField(max_length=100)
             codename = models.CharField(max_length=100)
             content_type = models.ForeignKey(FakeTemplateContentType, on_delete=models.CASCADE)
+
+            class Meta:
+                app_label = "shoutyorm"
 
         try:
             with connection.schema_editor() as editor:

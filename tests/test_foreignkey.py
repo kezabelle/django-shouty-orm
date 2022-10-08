@@ -1,3 +1,5 @@
+import django
+from django.conf import settings
 from django.db import models, connection, DatabaseError
 from django.test import TestCase
 from shoutyorm.errors import (
@@ -6,7 +8,25 @@ from shoutyorm.errors import (
     NoMoreFilteringAllowed,
 )
 
-from django import VERSION as DJANGO_VERSION
+if not settings.configured:
+    settings.configure(
+        SECRET_KEY="shoutyorm-runtests" * 10,
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        INSTALLED_APPS=("shoutyorm",),
+        MIDDLEWARE=(),
+        TEMPLATES=[
+            {
+                "BACKEND": "django.template.backends.django.DjangoTemplates",
+                "DIRS": [],
+                "APP_DIRS": True,
+                "OPTIONS": {"context_processors": ()},
+            },
+        ],
+        SHOUTY_LOCAL_FIELDS=True,
+        SHOUTY_RELATION_FIELDS=True,
+        SHOUTY_RELATION_REVERSE_FIELDS=True,
+    )
+    django.setup()
 
 
 class ForwardForeignKeyDescriptorTestCase(TestCase):
@@ -16,11 +36,17 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
         class Role(models.Model):
             title = models.CharField(max_length=100)
 
+            class Meta:
+                app_label = "shoutyorm"
+
         class User(models.Model):
             name = models.CharField(max_length=100)
             role = models.ForeignKey(
                 Role, on_delete=models.CASCADE, db_column="role_reference", related_name="users"
             )
+
+            class Meta:
+                app_label = "shoutyorm"
 
         try:
             with connection.schema_editor() as editor:
@@ -125,8 +151,14 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         class ReversableRole(models.Model):
             title = models.CharField(max_length=100)
 
+            class Meta:
+                app_label = "shoutyorm"
+
         class OtherThing(models.Model):
             role = models.ForeignKey(ReversableRole, on_delete=models.SET_NULL, null=True)
+
+            class Meta:
+                app_label = "shoutyorm"
 
         class ReversableUser(models.Model):
             name = models.CharField(max_length=100)
@@ -137,6 +169,9 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
                 related_name="users",
                 null=True,
             )
+
+            class Meta:
+                app_label = "shoutyorm"
 
         try:
             with connection.schema_editor() as editor:
@@ -193,7 +228,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             role.users.clear()
 
         q = 1
-        if DJANGO_VERSION[0:2] < (3, 0):
+        if django.VERSION[0:2] < (3, 0):
             q = 2
         with self.assertNumQueries(q):
             role.users.add(user)
@@ -206,7 +241,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             self.assertIsNone(role.users.last())
 
         q = 2
-        if DJANGO_VERSION[0:2] < (3, 0):
+        if django.VERSION[0:2] < (3, 0):
             q = 3
         with self.assertNumQueries(q):
             role.users.set((user,))
