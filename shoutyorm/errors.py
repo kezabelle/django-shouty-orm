@@ -33,5 +33,13 @@ class MissingReverseRelationField(MissingRelationField):
     __slots__ = ()
 
 
+class RedundantSelection(ShoutyAttributeError):
+    __slots__ = ("selected_name",)
+
+    def __init__(self, *args, selected_name):
+        super().__init__(*args)
+        self.selected_name = selected_name
+
+
 class NoMoreFilteringAllowed(ShoutyAttributeError):
     __slots__ = ()

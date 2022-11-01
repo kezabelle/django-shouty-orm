@@ -19,6 +19,7 @@ from shoutyorm.errors import (
     MissingOneToOneField,
     MissingForeignKeyField,
     MissingManyToManyField,
+    RedundantSelection,
 )
 
 # Hide the patch stacks from unittest output?
@@ -515,6 +516,52 @@ def new_model_save_base(
     return result
 
 
+# .objects.select_related("x").get(x=...) should raise an exception as it's pointless.
+old_queryset_get = QuerySet.get
+
+
+def new_queryset_get(self: QuerySet, *args: Any, **kwargs: Any):
+    __traceback_hide__ = True  # django
+    __tracebackhide__ = True  # pytest (+ipython?)
+    __debuggerskip__ = True  # (ipython+ipdb?)
+
+    # Do this first to not absorb any ObjectDoesNotExist or MultipleObjectsReturned
+    result = old_queryset_get(self, *args, **kwargs)
+    # .objects.select_related("x").get(x=...)
+    if self.query.select_related and self.query.select_related is not True:
+        for selected_name in self.query.select_related:
+            if selected_name in kwargs:
+                raise RedundantSelection(
+                    f"Calling `select_related('{selected_name}')` when using `get({selected_name}=...)` doesn't do anything",
+                    selected_name=selected_name,
+                )
+    return result
+
+
+# .objects.select_related("x").create(x=...) should raise an exception as it's pointless
+old_queryset_create = QuerySet.create
+
+
+def new_queryset_create(self: QuerySet, **kwargs: Any):
+    __traceback_hide__ = True  # django
+    __tracebackhide__ = True  # pytest (+ipython?)
+    __debuggerskip__ = True  # (ipython+ipdb?)
+    # .objects.select_related("x").get(x=...)
+    if self.query.select_related and self.query.select_related is not True:
+        for selected_name in self.query.select_related:
+            # Could leave in the underlying __cause__ because it can be relevant
+            # in the case of `get_or_create`?
+            exc = RedundantSelection(
+                f"Calling `select_related('{selected_name}')` when using `create()` doesn't do anything",
+                selected_name=selected_name,
+            )
+            exc.__cause__ = None
+            raise exc
+    # Do this second to throw early, before doing the INSERT.
+    result = old_queryset_create(self, **kwargs)
+    return result
+
+
 def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
     # type: (bool, bool, bool) -> bool
     """
@@ -569,5 +616,9 @@ def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
         if patched_reverse_manytoone is False:
             ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
             ReverseManyToOneDescriptor._shouty = True
+
+    QuerySet.get = new_queryset_get
+    QuerySet.create = new_queryset_create
+    QuerySet._shouty = True
 
     return True

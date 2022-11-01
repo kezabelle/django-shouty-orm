@@ -2,7 +2,7 @@ import django
 from django.conf import settings
 from django.db import models, connection, DatabaseError
 from django.test import TestCase
-from shoutyorm.errors import MissingOneToOneField
+from shoutyorm.errors import MissingOneToOneField, RedundantSelection
 
 if not settings.configured:
     settings.configure(
@@ -172,6 +172,53 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         with self.assertNumQueries(1):
             self.assertEqual(side_a2.side_b.title, "Side B!")
             self.assertIsNone(side_a2.nullable_thing)
+
+    def test_get_or_create_by_instance(self):
+        """
+        Doing select_related("x").get_or_create(x=...) basically doesn't make sense.
+        """
+        side_b = self.CassetteSideB.objects.create(title="Side B!")
+        # This goes through the create path.
+        with self.assertNumQueries(4), self.assertRaisesMessage(
+            RedundantSelection, "Calling `select_related('side_b')` when using `create()`"
+        ):
+            self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", side_b=side_b
+            )
+        # This will force going through the get path.
+        self.CassetteSideA.objects.create(title="Side A!", side_b=side_b)
+        with self.assertNumQueries(1), self.assertRaisesMessage(
+            RedundantSelection, "Calling `select_related('side_b')` when using `get(side_b=...)`"
+        ):
+            self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", side_b=side_b
+            )
+
+    def test_get_or_create_by_id(self):
+        """
+        Doing select_related("x").get_or_create(x_id=...) can sort of make sense?
+        """
+        side_b = self.CassetteSideB.objects.create(title="Side B!")
+        # This goes through the create path.
+        # SELECT shoutyorm_cassettesidea + shoutyorm_cassettesideb
+        # SAVEPOINT
+        # INSERT shoutyorm_cassettesidea
+        # RELEASE
+        # SELECT shoutyorm_cassettesideb
+        with self.assertNumQueries(4), self.assertRaisesMessage(
+            RedundantSelection, "Calling `select_related('side_b')` when using `create()`"
+        ):
+            self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!",
+                side_b_id=side_b.pk,
+            )
+        self.CassetteSideA.objects.create(title="Side A!", side_b=side_b)
+        # This will force going through the get path.
+        with self.assertNumQueries(1):
+            self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!",
+                side_b_id=side_b.pk,
+            )
 
 
 class ReverseOneToOneDescriptorTestCase(TestCase):
