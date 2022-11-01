@@ -179,20 +179,20 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         """
         side_b = self.CassetteSideB.objects.create(title="Side B!")
         # This goes through the create path.
-        with self.assertNumQueries(4), self.assertRaisesMessage(
-            RedundantSelection, "Calling `select_related('side_b')` when using `create()`"
-        ):
-            self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!", side_b=side_b
+        with self.assertNumQueries(4):
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b": side_b}
             )
+            self.assertTrue(created)
+            side_a.side_b
+
         # This will force going through the get path.
-        self.CassetteSideA.objects.create(title="Side A!", side_b=side_b)
-        with self.assertNumQueries(1), self.assertRaisesMessage(
-            RedundantSelection, "Calling `select_related('side_b')` when using `get(side_b=...)`"
-        ):
-            self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!", side_b=side_b
+        with self.assertNumQueries(1):
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b": side_b}
             )
+            self.assertFalse(created)
+            side_a.side_b
 
     def test_get_or_create_by_id(self):
         """
@@ -205,20 +205,20 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # INSERT shoutyorm_cassettesidea
         # RELEASE
         # SELECT shoutyorm_cassettesideb
-        with self.assertNumQueries(4), self.assertRaisesMessage(
-            RedundantSelection, "Calling `select_related('side_b')` when using `create()`"
-        ):
-            self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!",
-                side_b_id=side_b.pk,
+        with self.assertNumQueries(5):
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b_id": side_b.pk}
             )
-        self.CassetteSideA.objects.create(title="Side A!", side_b=side_b)
-        # This will force going through the get path.
+            self.assertTrue(created)
+            side_a.side_b
+
+        # This will force going through the get path, and doesn't error.
         with self.assertNumQueries(1):
-            self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!",
-                side_b_id=side_b.pk,
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b_id": side_b.pk}
             )
+            self.assertFalse(created)
+            side_a.side_b
 
 
 class ReverseOneToOneDescriptorTestCase(TestCase):
