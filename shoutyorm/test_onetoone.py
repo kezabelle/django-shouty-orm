@@ -174,50 +174,56 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
             self.assertIsNone(side_a2.nullable_thing)
 
     def test_get_or_create_by_instance(self):
-        """
-        Doing select_related("x").get_or_create(x=...) basically doesn't make sense.
-        """
-        side_b = self.CassetteSideB.objects.create(title="Side B!")
-        # This goes through the create path.
-        with self.assertNumQueries(4):
-            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!", defaults={"side_b": side_b}
-            )
-            self.assertTrue(created)
-            side_a.side_b
-
-        # This will force going through the get path.
-        with self.assertNumQueries(1):
-            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!", defaults={"side_b": side_b}
-            )
-            self.assertFalse(created)
-            side_a.side_b
-
-    def test_get_or_create_by_id(self):
-        """
-        Doing select_related("x").get_or_create(x_id=...) can sort of make sense?
-        """
         side_b = self.CassetteSideB.objects.create(title="Side B!")
         # This goes through the create path.
         # SELECT shoutyorm_cassettesidea + shoutyorm_cassettesideb
         # SAVEPOINT
         # INSERT shoutyorm_cassettesidea
         # RELEASE
-        # SELECT shoutyorm_cassettesideb
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(4):
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b": side_b}
+            )
+        self.assertTrue(created)
+        with self.assertNumQueries(0):
+            side_a.side_b
+
+        # This will force going through the get path.
+        # SELECT shoutyorm_cassettesidea + shoutyorm_cassettesideb
+        with self.assertNumQueries(1):
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b": side_b}
+            )
+        self.assertFalse(created)
+        with self.assertNumQueries(0):
+            side_a.side_b
+
+    def test_get_or_create_by_id(self):
+        side_b = self.CassetteSideB.objects.create(title="Side B!")
+        # This goes through the create path.
+        # SELECT shoutyorm_cassettesidea + shoutyorm_cassettesideb
+        # SAVEPOINT
+        # INSERT shoutyorm_cassettesidea
+        # RELEASE
+        with self.assertNumQueries(4):
             side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
                 title="Side A!", defaults={"side_b_id": side_b.pk}
             )
-            self.assertTrue(created)
+        self.assertTrue(created)
+        # SELECT shoutyorm_cassettesideb
+        # This is allowed to do a query because we cannot avoid one; see
+        # the new_foreignkey_descriptor_get_object comments.
+        with self.assertNumQueries(1):
             side_a.side_b
 
         # This will force going through the get path, and doesn't error.
+        # SELECT shoutyorm_cassettesidea + shoutyorm_cassettesideb
         with self.assertNumQueries(1):
             side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
                 title="Side A!", defaults={"side_b_id": side_b.pk}
             )
-            self.assertFalse(created)
+        self.assertFalse(created)
+        with self.assertNumQueries(0):
             side_a.side_b
 
 
