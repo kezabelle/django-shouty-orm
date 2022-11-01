@@ -8,6 +8,7 @@ from shoutyorm.errors import (
     NoMoreFilteringAllowed,
 )
 
+
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
@@ -36,9 +37,11 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
         class Role(models.Model):
             title = models.CharField(max_length=100)
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         class User(models.Model):
             name = models.CharField(max_length=100)
@@ -46,9 +49,11 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
                 Role, on_delete=models.CASCADE, db_column="role_reference", related_name="users"
             )
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         try:
             with connection.schema_editor() as editor:
@@ -153,16 +158,20 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         class ReversableRole(models.Model):
             title = models.CharField(max_length=100)
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         class OtherThing(models.Model):
             role = models.ForeignKey(ReversableRole, on_delete=models.SET_NULL, null=True)
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         class ReversableUser(models.Model):
             name = models.CharField(max_length=100)
@@ -174,9 +183,11 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
                 null=True,
             )
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         try:
             with connection.schema_editor() as editor:

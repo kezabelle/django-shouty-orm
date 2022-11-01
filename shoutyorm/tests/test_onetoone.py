@@ -31,20 +31,21 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # type: () -> None
 
         class CassetteNullRelation(models.Model):
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(
-                    file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-                )
+            pass
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         class CassetteSideB(models.Model):
             title = models.CharField(max_length=100)
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(
-                    file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-                )
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         class CassetteSideA(models.Model):
             title = models.CharField(max_length=100)
@@ -60,11 +61,11 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
                 null=True,
             )
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(
-                    file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-                )
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         try:
             with connection.schema_editor() as editor:
@@ -180,11 +181,11 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
         class RewindingCassetteSideB(models.Model):
             title = models.CharField(max_length=100)
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(
-                    file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-                )
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         class RewindingCassetteSideA(models.Model):
             title = models.CharField(max_length=100)
@@ -195,11 +196,11 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
                 related_name="woo_side_a",
             )
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(
-                    file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-                )
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(
+            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
+            #     )
 
         try:
             with connection.schema_editor() as editor:

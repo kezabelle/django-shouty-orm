@@ -32,9 +32,9 @@ class OnlyDeferTestCase(TestCase):
         class RelatedThing(models.Model):
             title = models.CharField(max_length=100)
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         class Item(models.Model):
             title = models.CharField(max_length=100)
@@ -47,9 +47,9 @@ class OnlyDeferTestCase(TestCase):
                 related_name="related_things",
             )
 
-            class Meta:
-                app_label = "shoutyorm"
-                db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
+            # class Meta:
+            #     app_label = "shoutyorm"
+            #     db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:

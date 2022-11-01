@@ -22,9 +22,9 @@ if not settings.configured:
     )
     django.setup()
 
-
-test_runner = DiscoverRunner(interactive=False, verbosity=2)
-failures = test_runner.run_tests(
-    test_labels=[],
-    extra_tests=[],
-)
+if __name__ == "__main__":
+    test_runner = DiscoverRunner(interactive=False, verbosity=2)
+    failures = test_runner.run_tests(
+        test_labels=[],
+        extra_tests=[],
+    )
