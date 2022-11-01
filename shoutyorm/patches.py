@@ -35,6 +35,9 @@ old_deferredattribute_check_parent_chain = DeferredAttribute._check_parent_chain
 
 
 def new_deferredattribute_check_parent_chain(self, instance, name=None):
+    """
+    When using .only("x") or .defer("y"), access to "y" should be prohibited.
+    """
     # type: (DeferredAttribute, Model, Optional[Text]) -> Any
     __traceback_hide__ = True  # django
     __tracebackhide__ = True  # pytest (+ipython?)
@@ -116,6 +119,7 @@ def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
 
     manager = old_reverse_foreignkey_descriptor_get(self, instance, cls)
 
+    # There's no prefetch_related() call at all.
     if not hasattr(instance, "_prefetched_objects_cache"):
         all_exception = MissingReverseRelationField(
             "Access to `{cls}.{attr}.all()` was prevented.\n"
@@ -136,6 +140,8 @@ def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
             raise all_exception
 
         manager.all = no_prefetched_all.__get__(manager)
+    # There is a prefetch_related() call, but it doesn't include this reverse
+    # model.
     elif (
         instance._prefetched_objects_cache
         and self.field.remote_field.get_cache_name() not in instance._prefetched_objects_cache
@@ -299,7 +305,6 @@ def new_reverse_onetoone_descriptor_get(self, instance, cls=None):
                 "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
                     attr=self.related.get_accessor_name(),
                     cls=instance.__class__.__name__,
-                    # x_related_name=other_side.get_accessor_name() or "...",
                     x_related_name=self.related.get_accessor_name() or "...",
                     remote_cls=self.related.remote_field.model.__name__,
                 )
@@ -342,6 +347,7 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
         related_name = self.field.get_cache_name()
         related_model = self.field.model
 
+    # If there's no prefetch_related() usage at all, m2ms will be N+1
     if not hasattr(instance, "_prefetched_objects_cache"):
         exception = MissingManyToManyField(
             "Access to `{cls}.{attr}.all()` was prevented.\n"
@@ -362,6 +368,8 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
             raise exception
 
         manager.all = no_prefetched_all.__get__(manager)
+    # There is a prefetch_related() call, but it doesn't look like it includes
+    # this model, so it should be added in...
     elif (
         instance._prefetched_objects_cache
         and related_name not in instance._prefetched_objects_cache
@@ -431,10 +439,6 @@ def new_foreignkey_descriptor_get_object(self, instance):
     __tracebackhide__ = True  # pytest (+ipython?)
     __debuggerskip__ = True  # (ipython+ipdb?)
     exception_class = MissingOneToOneField if self.field.one_to_one else MissingForeignKeyField
-    # TODO: this could fail and not be set, for non-persisted or non-autofields, right?
-    # my_pk = getattr(instance, "pk", None)
-    # TODO: this could fail too?
-    # their_pk = getattr(instance, self.field.get_attname(), None)
 
     # Start tro track how much has been lazily acquired. By default they should
     # all be zero.
