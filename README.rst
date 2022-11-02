@@ -73,6 +73,44 @@ Pretty much all relationship access (normal or reverse, ``OneToOne`` or
 ``ForeignKey`` or ``ManyToMany``) should be blocked unless ``select_related`` or
 ``prefetch_related`` were used to include them.
 
+
+Methods which are blocked when ``prefetch_related`` data exists.
+-------------------------
+
+- ``RelatedManager.filter``
+- ``RelatedManager.exclude``
+- ``RelatedManager.annotate``
+- ``RelatedManager.earliest``
+- ``RelatedManager.latest``
+- ``RelatedManager.in_bulk``
+
+Methods which aren't yet blocked
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+But they probably should be? I need to check whether they always do queries...
+
+- ``RelatedManager.defer``
+- ``RelatedManager.only``
+- ``RelatedManager.reverse``
+- ``RelatedManager.distinct``
+- ``RelatedManager.extra``
+- ``RelatedManager.order_by``
+- ``RelatedManager.alias``
+- ``RelatedManager.select_related``
+- ``RelatedManager.prefetch_related``
+- ``RelatedManager.values``
+- ``RelatedManager.values_list``
+
+Methods which probably won't ever be blocked
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- ``RelatedManager.select_for_update``
+- ``RelatedManager.dates``
+- ``RelatedManager.datetimes``
+- ``RelatedManager.intersection``
+- ``RelatedManager.difference``
+- ``RelatedManager.union``
+
 Setup
 -----
 

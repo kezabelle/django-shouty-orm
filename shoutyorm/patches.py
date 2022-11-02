@@ -149,6 +149,56 @@ def rebind_related_manager_via_descriptor(
                 remote_class_var=remote_model.__name__.lower(),
             ),
         )
+
+        manager.earliest = exception_raising(
+            manager.earliest,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.earliest(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Fetch the earliest existing `{remote_cls}` in memory with:\n"
+                "`sorted({cls_var}.{attr}.all(), key=attrgetter(...))[0]`\n"
+                "Fetch the earliest `{remote_cls}` from the database with:\n"
+                "`{remote_cls}.objects.order_by(...).get({cls_var}={cls_var}.pk)`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.latest = exception_raising(
+            manager.latest,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.latest(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Fetch the latest existing `{remote_cls}` in memory with:\n"
+                "`sorted({cls_var}.{attr}.all(), reverse=True, key=attrgetter(...))[0]`\n"
+                "Fetch the latest `{remote_cls}` from the database with:\n"
+                "`{remote_cls}.objects.order_by(...).get({cls_var}={cls_var}.pk)`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.in_bulk = exception_raising(
+            manager.in_bulk,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.in_bulk(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Convert the existing in memory `{remote_cls}` instances with:\n"
+                "`{{{remote_class_var}.pk: {remote_class_var} for {remote_class_var} in {cls_var}.{attr}.all()}}`\n"
+                "Fetch the latest `{remote_cls}` from the database with:\n"
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).in_bulk()`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+
         # This is necessary so that attempts to escape the manager by doing
         # .all().filter() can still be caught, and have the relevant context to render
         # their exception.
