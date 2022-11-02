@@ -9,7 +9,18 @@ class ShoutyAttributeError(Exception):
     well goodness there's nothing I can do to save them.
     """
 
-    __slots__ = ()
+    __slots__ = ("kwargs",)
+
+    def __init__(self, /, text, **kwargs):
+        super().__init__(text)
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return self.args[0].format(**self.kwargs)
+
+    def __repr__(self):
+        kws = ", ".join(f"{k}={v}" for k, v in self.kwargs.items())
+        return f"{self.__class__.__qualname__}(text={self.args[0]}, {kws!r})"
 
 
 class MissingLocalField(ShoutyAttributeError):
