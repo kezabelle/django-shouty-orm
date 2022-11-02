@@ -1,3 +1,4 @@
+from __future__ import annotations
 import django
 from django.conf import settings
 from django.db import models, connection, DatabaseError
@@ -39,8 +40,7 @@ class TemplateTestCase(TestCase):  # type: ignore
     """
 
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
+    def setUpClass(cls) -> None:
         # class RelatedGroup(models.Model):
         #     title = models.CharField(max_length=100)
 
@@ -71,8 +71,7 @@ class TemplateTestCase(TestCase):  # type: ignore
         cls.User = FakeTemplateUser
         super().setUpClass()
 
-    def test_local(self):
-        # type: () -> None
+    def test_local(self) -> None:
         u = self.User.objects.create(
             first_name="test",
             last_name="test",
@@ -98,8 +97,7 @@ class TemplateTestCase(TestCase):  # type: ignore
                 )
             )
 
-    def test_local_foreignkey(self):
-        # type: () -> None
+    def test_local_foreignkey(self) -> None:
         created = self.Permission.objects.create(
             title="test fake permission",
             codename="fake",
@@ -125,8 +123,7 @@ class TemplateTestCase(TestCase):  # type: ignore
                 )
             )
 
-    def test_reverse_foreignkey(self):
-        # type: () -> None
+    def test_reverse_foreignkey(self) -> None:
         self.ContentType.objects.create(title="fake ct")
         (ct,) = self.ContentType.objects.all()
         tmpl = Template(

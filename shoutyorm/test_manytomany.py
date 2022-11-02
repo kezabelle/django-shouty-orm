@@ -1,3 +1,4 @@
+from __future__ import annotations
 import django
 from django.conf import settings
 from django.test import TestCase
@@ -30,8 +31,7 @@ if not settings.configured:
 
 class ManyToManyTestCase(TestCase):
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
+    def setUpClass(cls) -> None:
         class RelatedGroup(models.Model):
             title = models.CharField(max_length=100)
 
@@ -50,8 +50,7 @@ class ManyToManyTestCase(TestCase):
         cls.Group = RelatedGroup
         super().setUpClass()
 
-    def test_accessing_nonprefetched_m2m_works_when_trying_to_add(self):
-        # type: () -> None
+    def test_accessing_nonprefetched_m2m_works_when_trying_to_add(self) -> None:
         """
         There are certain methods you want to access on an m2m which disregard
         the prefetch cache and should specifically not error.
@@ -70,8 +69,7 @@ class ManyToManyTestCase(TestCase):
         with self.assertNumQueries(q):
             group.m2mitem_set.add(self.Item.objects.create(title="item"))
 
-    def test_accessing_nonprefetched_m2m_fails_when_accessing_all(self):
-        # type: () -> None
+    def test_accessing_nonprefetched_m2m_fails_when_accessing_all(self) -> None:
         """
         Normal use case - failure to prefetch should error loudly
         """
@@ -89,9 +87,7 @@ class ManyToManyTestCase(TestCase):
 
 class NestedManyToManyTestCase(TestCase):
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
-
+    def setUpClass(cls) -> None:
         class NestedGroup(models.Model):
             title = models.CharField(max_length=100)
 
@@ -116,8 +112,7 @@ class NestedManyToManyTestCase(TestCase):
         cls.NestedGroup = NestedGroup
         super().setUpClass()
 
-    def test_accessing_nonprefetched_nested_relations_fails(self):
-        # type: () -> None
+    def test_accessing_nonprefetched_nested_relations_fails(self) -> None:
         """
         It's OK to access groups because we prefetched it, but accessing
         the group's nested set is NOT ok.
@@ -140,8 +135,7 @@ class NestedManyToManyTestCase(TestCase):
             ):
                 item_group.nested.all()
 
-    def test_accessing_prefetched_nested_relations_is_ok(self):
-        # type: () -> None
+    def test_accessing_prefetched_nested_relations_is_ok(self) -> None:
         """
         It's OK to access groups because we prefetched it, but accessing
         the group's permissions is NOT ok.
@@ -159,8 +153,7 @@ class NestedManyToManyTestCase(TestCase):
             (item_group,) = item2.groups.all()
             (item_group_nested,) = item_group.nested.all()
 
-    def test_accessing_relations_involving_prefetch_objects_is_ok(self):
-        # type: () -> None
+    def test_accessing_relations_involving_prefetch_objects_is_ok(self) -> None:
         """
         Make sure using a Prefetch object doesn't throw a spanner in the works.
         """
@@ -180,8 +173,7 @@ class NestedManyToManyTestCase(TestCase):
             (item_group,) = item2.groups.all()
             (item_group_nested,) = item_group.nested.all()
 
-    def test_accessing_relations_involving_prefetch_objects_is_ok2(self):
-        # type: () -> None
+    def test_accessing_relations_involving_prefetch_objects_is_ok2(self) -> None:
         """
         Make sure using a Prefetch object doesn't throw a spanner in the works.
         """
@@ -201,8 +193,7 @@ class NestedManyToManyTestCase(TestCase):
             (item_group,) = item2.groups.all()
             (item_group_nested,) = item_group.nested.all()
 
-    def test_accessing_relations_involving_prefetch_objects_is_ok3(self):
-        # type: () -> None
+    def test_accessing_relations_involving_prefetch_objects_is_ok3(self) -> None:
         """
         Make sure using a Prefetch object doesn't throw a spanner in the works.
         """
@@ -224,9 +215,7 @@ class NestedManyToManyTestCase(TestCase):
 
 class MultipleManyToManyTestCase(TestCase):
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
-
+    def setUpClass(cls) -> None:
         class RelatedThing2(models.Model):
             title = models.CharField(max_length=100)
 
@@ -251,8 +240,7 @@ class MultipleManyToManyTestCase(TestCase):
         cls.RelatedThing2 = RelatedThing2
         super().setUpClass()
 
-    def test_accessing_multiple_prefetched_nonnested_relations_is_ok(self):
-        # type: () -> None
+    def test_accessing_multiple_prefetched_nonnested_relations_is_ok(self) -> None:
         """
         Accessing more than 1 prefetch at the same level is OK.
         This was part of the difficulty in figuring this out, because by the

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import django
 from django.conf import settings
 from django.db import models, connection, DatabaseError
@@ -27,9 +28,7 @@ if not settings.configured:
 
 class ForwardOneToOneDescriptorTestCase(TestCase):
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
-
+    def setUpClass(cls) -> None:
         class CassetteNullRelation(models.Model):
             pass
 
@@ -212,8 +211,7 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
 
 class ReverseOneToOneDescriptorTestCase(TestCase):
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
+    def setUpClass(cls) -> None:
         class RewindingCassetteSideB(models.Model):
             title = models.CharField(max_length=100)
 

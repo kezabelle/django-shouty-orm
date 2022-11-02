@@ -1,3 +1,4 @@
+from __future__ import annotations
 import django
 from django.conf import settings
 from django.db import models, connection, DatabaseError
@@ -34,8 +35,7 @@ class FormTestCase(TestCase):  # type: ignore
     """
 
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
+    def setUpClass(cls) -> None:
         class FakeContentType(models.Model):
             title = models.CharField(max_length=100)
 
@@ -54,8 +54,7 @@ class FormTestCase(TestCase):  # type: ignore
         cls.FakeContentType = FakeContentType
         super().setUpClass()
 
-    def test_foreignkey_in_form(self):
-        # type: () -> None
+    def test_foreignkey_in_form(self) -> None:
         """
         Prove that the patch doesn't affect modelform generation.
         """
@@ -83,8 +82,7 @@ class FormTestCase(TestCase):  # type: ignore
         with self.assertNumQueries(1):
             form.save()
 
-    def test_local_in_form(self):
-        # type: () -> None
+    def test_local_in_form(self) -> None:
         instance = self.FakePermission.objects.create(
             title="fake permission",
             related_thing=self.FakeContentType.objects.create(title="fake content-type"),

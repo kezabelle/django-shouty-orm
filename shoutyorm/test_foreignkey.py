@@ -1,3 +1,4 @@
+from __future__ import annotations
 import django
 from django.conf import settings
 from django.db import models, connection, DatabaseError
@@ -32,8 +33,7 @@ if not settings.configured:
 
 class ForwardForeignKeyDescriptorTestCase(TestCase):
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
+    def setUpClass(cls) -> None:
         class Role(models.Model):
             title = models.CharField(max_length=100)
 
@@ -141,8 +141,7 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
 
 class ReverseForeignKeyDescriptorTestCase(TestCase):
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
+    def setUpClass(cls) -> None:
         class ReversableRole(models.Model):
             title = models.CharField(max_length=100)
 
@@ -171,8 +170,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         cls.Role = ReversableRole
         super().setUpClass()
 
-    def test_accessing_other_side_of_foreignkey_when_not_prefetched(self):
-        # type: () -> None
+    def test_accessing_other_side_of_foreignkey_when_not_prefetched(self) -> None:
         self.User.objects.create(
             name="Bert", role=self.Role.objects.create(title="Not quite admin")
         )
@@ -249,8 +247,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.assertNumQueries(1):
             self.assertIsNotNone(role.users.last())
 
-    def test_count_when_prefetched(self):
-        # type: () -> None
+    def test_count_when_prefetched(self) -> None:
         """count shouldn't be affected"""
         self.User.objects.create(
             name="Bert", role=self.Role.objects.create(title="Not quite admin")
@@ -261,8 +258,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.assertNumQueries(0):
             self.assertEqual(role.users.count(), 1)
 
-    def test_count_when_not_prefetched(self):
-        # type: () -> None
+    def test_count_when_not_prefetched(self) -> None:
         """count shouldn't be affected"""
         self.User.objects.create(
             name="Bert", role=self.Role.objects.create(title="Not quite admin")
@@ -273,8 +269,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.assertNumQueries(1):
             self.assertEqual(role.users.count(), 1)
 
-    def test_filtering_etc_when_cached(self):
-        # type: () -> None
+    def test_filtering_etc_when_cached(self) -> None:
         """
         Ideally, trying to do another query after prefetching shoud be caught.
 
@@ -303,8 +298,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.subTest("QuerySet filter"), self.assertNumQueries(1):
             self.assertTrue(role.users.all().filter(pk=role.pk).exists())
 
-    def test_filter_and_exclude_and_annotate_when_prefetched(self):
-        # type: () -> None
+    def test_filter_and_exclude_and_annotate_when_prefetched(self) -> None:
         """count shouldn't be affected"""
         self.User.objects.create(
             name="Bert", role=self.Role.objects.create(title="Not quite admin")

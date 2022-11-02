@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 from django.apps import AppConfig
 from .patches import patch
@@ -28,8 +29,7 @@ class Shout(AppConfig):  # type: ignore
     # noinspection PyUnresolvedReferences
     name = "shoutyorm"
 
-    def ready(self):
-        # type: () -> bool
+    def ready(self) -> bool:
         # The import of settings is deferred until here so that help(shoutyorm)
         # and by extension "$ pydoc shoutyorm" both work instead of barfing
         # about django not being configured yet.

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class ShoutyAttributeError(Exception):
     """
     Whilst this should technically be an AttributeError, there's more likelihood

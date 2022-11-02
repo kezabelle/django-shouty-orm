@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 try:
-    from typing import Optional, Text, Any, NoReturn, Iterable
+    from typing import Optional, Text, Any, NoReturn, Iterable, Type
 except ImportError:  # pragma: no cover
     pass
 
@@ -34,11 +36,12 @@ old_queryset_fetch_all = QuerySet._fetch_all
 old_deferredattribute_check_parent_chain = DeferredAttribute._check_parent_chain
 
 
-def new_deferredattribute_check_parent_chain(self, instance, name=None):
+def new_deferredattribute_check_parent_chain(
+    self: DeferredAttribute, instance: Model, name: Optional[Text] = None
+) -> Any:
     """
     When using .only("x") or .defer("y"), access to "y" should be prohibited.
     """
-    # type: (DeferredAttribute, Model, Optional[Text]) -> Any
     __traceback_hide__ = True  # django
     __tracebackhide__ = True  # pytest (+ipython?)
     __debuggerskip__ = True  # (ipython+ipdb?)
@@ -89,8 +92,9 @@ def new_deferredattribute_check_parent_chain(self, instance, name=None):
 old_reverse_foreignkey_descriptor_get = ReverseManyToOneDescriptor.__get__
 
 
-def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
-    # type: (ReverseManyToOneDescriptor, Model, None) -> Any
+def new_reverse_foreignkey_descriptor_get(
+    self: ReverseManyToOneDescriptor, instance: Model, cls: Optional[Type[Model]] = None
+) -> Any:
     """
     This should get invoked when a Model is set up thus:
     ```
@@ -248,8 +252,9 @@ def new_reverse_foreignkey_descriptor_get(self, instance, cls=None):
 old_reverse_onetoone_descriptor_get = ReverseOneToOneDescriptor.__get__
 
 
-def new_reverse_onetoone_descriptor_get(self, instance, cls=None):
-    # type: (ReverseOneToOneDescriptor, Model, None) -> Any
+def new_reverse_onetoone_descriptor_get(
+    self: ReverseOneToOneDescriptor, instance: Model, cls: Optional[Type[Model]] = None
+) -> Any:
     """
     This should get invoked when a Model is set up thus:
     ```
@@ -324,8 +329,9 @@ def new_reverse_onetoone_descriptor_get(self, instance, cls=None):
 old_manytomany_descriptor_get = ManyToManyDescriptor.__get__
 
 
-def new_manytomany_descriptor_get(self, instance, cls=None):
-    # type: (ManyToManyDescriptor, Model, None) -> Any
+def new_manytomany_descriptor_get(
+    self: ManyToManyDescriptor, instance: Model, cls: Optional[Type[Model]] = None
+) -> Any:
     """
     This is invoked when you're asking for mymodel.m2m.all() or more specifically
     asking for mymodel.m2m... accessing .all() in SOME scenarios will now
@@ -408,8 +414,9 @@ def new_manytomany_descriptor_get(self, instance, cls=None):
 old_foreignkey_descriptor_get_object = ForwardManyToOneDescriptor.get_object
 
 
-def new_foreignkey_descriptor_get_object(self, instance):
-    # type: (ForwardManyToOneDescriptor, Model) -> Model
+def new_foreignkey_descriptor_get_object(
+    self: ForwardManyToOneDescriptor, instance: Model
+) -> Model:
     """
     This covers both OneToOneField and ForeignKey forward references.
 
@@ -488,9 +495,13 @@ old_model_save_base = Model.save_base
 
 
 def new_model_save_base(
-    self, raw=False, force_insert=False, force_update=False, using=None, update_fields=None
-):
-    # type: (Model, bool, bool, bool, Optional[str], Optional[Iterable[str]])-> None
+    self: Model,
+    raw: bool = False,
+    force_insert: bool = False,
+    force_update: bool = False,
+    using: Optional[str] = None,
+    update_fields: Optional[Iterable[str]] = None,
+) -> None:
     """
     This is used to establish whether we've just created a model via
     MyModel.objects.create() or MyModel(...).save()
@@ -520,8 +531,7 @@ def new_model_save_base(
     return result
 
 
-def patch(invalid_locals, invalid_relations, invalid_reverse_relations):
-    # type: (bool, bool, bool) -> bool
+def patch(invalid_locals: bool, invalid_relations: bool, invalid_reverse_relations: bool):
     """
     if invalid_locals is True, accessing fields which have been
     deferred via `.only()` and `.defer()` at the QuerySet level will error loudly.

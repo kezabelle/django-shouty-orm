@@ -1,3 +1,4 @@
+from __future__ import annotations
 from django.test.runner import DiscoverRunner
 import django
 from django.conf import settings

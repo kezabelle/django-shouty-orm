@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 """
 A series of monkeypatches to apply to Django's various ORM methods to force it
 to error loudly when another query would be triggered, rather than silently
@@ -70,8 +71,7 @@ version = "0.1.1"
 VERSION = "0.1.1"
 
 
-def get_version():
-    # type: () -> Text
+def get_version() -> Text:
     return version
 
 

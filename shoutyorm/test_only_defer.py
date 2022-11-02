@@ -1,3 +1,4 @@
+from __future__ import annotations
 import django
 from django.conf import settings
 from django.test import TestCase
@@ -27,8 +28,7 @@ if not settings.configured:
 
 class OnlyDeferTestCase(TestCase):
     @classmethod
-    def setUpClass(cls):
-        # type: () -> None
+    def setUpClass(cls) -> None:
         class RelatedThing(models.Model):
             title = models.CharField(max_length=100)
 
@@ -54,8 +54,7 @@ class OnlyDeferTestCase(TestCase):
         cls.RelatedThing = RelatedThing
         super().setUpClass()
 
-    def test_normal_behaviour(self):
-        # type: () -> None
+    def test_normal_behaviour(self) -> None:
         with self.assertNumQueries(2):
             self.Item.objects.create(
                 title="test item",
