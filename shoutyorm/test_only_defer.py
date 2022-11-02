@@ -32,10 +32,6 @@ class OnlyDeferTestCase(TestCase):
         class RelatedThing(models.Model):
             title = models.CharField(max_length=100)
 
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
-
         class Item(models.Model):
             title = models.CharField(max_length=100)
             created = models.DateTimeField(auto_now_add=True)
@@ -46,10 +42,6 @@ class OnlyDeferTestCase(TestCase):
                 db_column="related_thingie",
                 related_name="related_things",
             )
-
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:

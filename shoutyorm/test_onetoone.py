@@ -32,20 +32,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
 
         class CassetteNullRelation(models.Model):
             pass
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
 
         class CassetteSideB(models.Model):
             title = models.CharField(max_length=100)
-
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
 
         class CassetteSideA(models.Model):
             title = models.CharField(max_length=100)
@@ -60,12 +49,6 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
                 on_delete=models.SET_NULL,
                 null=True,
             )
-
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
 
         try:
             with connection.schema_editor() as editor:
@@ -234,12 +217,6 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
         class RewindingCassetteSideB(models.Model):
             title = models.CharField(max_length=100)
 
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
-
         class RewindingCassetteSideA(models.Model):
             title = models.CharField(max_length=100)
             side_b = models.OneToOneField(
@@ -248,12 +225,6 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
                 db_column="yay_side_b",
                 related_name="woo_side_a",
             )
-
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
 
         try:
             with connection.schema_editor() as editor:

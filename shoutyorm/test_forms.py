@@ -39,17 +39,9 @@ class FormTestCase(TestCase):  # type: ignore
         class FakeContentType(models.Model):
             title = models.CharField(max_length=100)
 
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
-
         class FakePermission(models.Model):
             title = models.CharField(max_length=100)
             related_thing = models.ForeignKey(FakeContentType, on_delete=models.CASCADE)
-
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:

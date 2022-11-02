@@ -35,17 +35,9 @@ class ManyToManyTestCase(TestCase):
         class RelatedGroup(models.Model):
             title = models.CharField(max_length=100)
 
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
-
         class M2MItem(models.Model):
             title = models.CharField(max_length=100)
             groups = models.ManyToManyField(RelatedGroup)
-
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(file=__name__.replace('.', '_'), testcase=cls.__qualname__.lower())
 
         try:
             with connection.schema_editor() as editor:
@@ -103,31 +95,13 @@ class NestedManyToManyTestCase(TestCase):
         class NestedGroup(models.Model):
             title = models.CharField(max_length=100)
 
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
-
         class RelatedGroupForNesting(models.Model):
             title = models.CharField(max_length=100)
             nested = models.ManyToManyField(NestedGroup)
 
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
-
         class NestedItem(models.Model):
             title = models.CharField(max_length=100)
             groups = models.ManyToManyField(RelatedGroupForNesting)
-
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
 
         try:
             with connection.schema_editor() as editor:
@@ -256,31 +230,13 @@ class MultipleManyToManyTestCase(TestCase):
         class RelatedThing2(models.Model):
             title = models.CharField(max_length=100)
 
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
-
         class RelatedThing1(models.Model):
             title = models.CharField(max_length=100)
-
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
 
         class Thing(models.Model):
             title = models.CharField(max_length=100)
             relatable = models.ManyToManyField(RelatedThing1)
             unrelatable = models.ManyToManyField(RelatedThing2)
-
-            # class Meta:
-            #     app_label = "shoutyorm"
-            #     db_table = "shoutyorm_{file}_{testcase}".format(
-            #         file=__name__.replace(".", "_"), testcase=cls.__qualname__.lower()
-            #     )
 
         try:
             with connection.schema_editor() as editor:
