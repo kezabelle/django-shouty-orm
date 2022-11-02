@@ -315,28 +315,59 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.assertNumQueries(2):
             (role,) = self.Role.objects.prefetch_related("users").all()
 
-        with self.assertNumQueries(0), self.assertRaisesMessage(
+        with self.subTest("QuerySet filter"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
             "Access to `ReversableRole.users.filter(...)` was prevented because of previous `prefetch_related('users')`\n"
             "Filter existing objects in memory with `[reversableuser for reversableuser in ReversableRole.users.all() if reversableuser ...]\n"
             "Filter new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk, ...)` for clarity.",
         ):
+            (user,) = role.users.all().filter(name="Bert")
+
+        with self.subTest("Manager filter"), self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `users.filter(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
+            "Filter existing objects in memory with:\n"
+            "`[reversableuser for reversableuser in reversablerole.users.all() if reversableuser ...]`\n"
+            "Filter new objects from the database with:\n"
+            "`ReversableUser.objects.filter(reversablerole=reversablerole.pk, ...)`",
+        ):
             (user,) = role.users.filter(name="Bert")
 
-        with self.assertNumQueries(0), self.assertRaisesMessage(
+        with self.subTest("QuerySet exclude"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
             "Access to `ReversableRole.users.exclude(...)` was prevented because of previous `prefetch_related('users')`\n"
             "Exclude existing objects in memory with `[reversableuser for reversableuser in ReversableRole.users.all() if reversableuser ...]\n"
             "Exclude new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk).exclude(...)` for clarity.",
         ):
+            (user,) = role.users.all().exclude(name="Bert1")
+
+        with self.subTest("Manager exclude"), self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `users.exclude(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
+            "Exclude existing objects in memory with:\n"
+            "`[reversableuser for reversableuser in reversablerole.users.all() if reversableuser != ...]`\n"
+            "Exclude new objects from the database with:\n"
+            "`ReversableUser.objects.filter(reversablerole=reversablerole.pk).exclude(...)`",
+        ):
             (user,) = role.users.exclude(name="Bert1")
 
-        with self.assertNumQueries(0), self.assertRaisesMessage(
+        with self.subTest("QuerySet annotate"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
             "Access to `ReversableRole.users.annotate(...)` was prevented because of previous `prefetch_related('users')`\n"
             "Annotate existing objects in memory with `for reversableuser in ReversableRole.users.all(): reversableuser.xyz = ...\n"
             "Annotate new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk).annotate(...)` for clarity.",
         ):
+            (user,) = role.users.all().annotate(
+                name2=models.Value(True, output_field=models.BooleanField())
+            )
+        with self.subTest("Manager annotate"), self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `users.annotate(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
+            "Annotate existing objects in memory with:\n"
+            "`for reversableuser in reversablerole.users.all(): reversableuser.xyz = ...`\n"
+            "Annotate new objects from the database with:\n"
+            "`ReversableUser.objects.filter(reversablerole=reversablerole.pk).annotate(...)`",
+        ):
             (user,) = role.users.annotate(
-                name=models.Value(True, output_field=models.BooleanField())
+                name2=models.Value(True, output_field=models.BooleanField())
             )

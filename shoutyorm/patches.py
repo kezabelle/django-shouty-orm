@@ -35,10 +35,10 @@ __unittest = True
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ShoutyMetadata:
-    attr: str
-    cls: str
-    x_related_name: str
-    remote_cls: str
+    model: Type[Model]
+    remote_model: Type[Model]
+    attr_name: str
+    related_name: str
 
 
 def exception_raising(func: Callable, exception: ShoutyAttributeError):
@@ -103,9 +103,11 @@ def rebind_related_manager_via_descriptor(
         manager.exclude = exception_raising(
             manager.exclude,
             NoMoreFilteringAllowed(
-                "Access to `{cls}.{attr}.exclude(...)` was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Exclude existing objects in memory with `[{remote_class_var} for {remote_class_var} in {cls}.{attr}.all() if {remote_class_var} ...]\n"
-                "Exclude new objects from the database with `{remote_cls}.objects.filter(pk={cls_var}.pk).exclude(...)` for clarity.",
+                "Access to `{attr}.exclude(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Exclude existing objects in memory with:\n"
+                "`[{remote_class_var} for {remote_class_var} in {cls_var}.{attr}.all() if {remote_class_var} != ...]`\n"
+                "Exclude new objects from the database with:\n"
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).exclude(...)`",
                 attr=attr_name,
                 cls=model.__name__,
                 cls_var=model.__name__.lower(),
@@ -117,9 +119,11 @@ def rebind_related_manager_via_descriptor(
         manager.filter = exception_raising(
             manager.filter,
             NoMoreFilteringAllowed(
-                "Access to `{cls}.{attr}.filter(...)` was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Filter existing objects in memory with `[{remote_class_var} for {remote_class_var} in {cls}.{attr}.all() if {remote_class_var} ...]\n"
-                "Filter new objects from the database with `{remote_cls}.objects.filter(pk={cls_var}.pk, ...)` for clarity.",
+                "Access to `{attr}.filter(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Filter existing objects in memory with:\n"
+                "`[{remote_class_var} for {remote_class_var} in {cls_var}.{attr}.all() if {remote_class_var} ...]`\n"
+                "Filter new objects from the database with:\n"
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk, ...)`",
                 attr=attr_name,
                 cls=model.__name__,
                 cls_var=model.__name__.lower(),
@@ -132,9 +136,11 @@ def rebind_related_manager_via_descriptor(
         manager.annotate = exception_raising(
             manager.annotate,
             NoMoreFilteringAllowed(
-                "Access to `{cls}.{attr}.annotate(...)` was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Annotate existing objects in memory with `for {remote_class_var} in {cls}.{attr}.all(): {remote_class_var}.xyz = ...\n"
-                "Annotate new objects from the database with `{remote_cls}.objects.filter(pk={cls_var}.pk).annotate(...)` for clarity.",
+                "Access to `{attr}.annotate(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Annotate existing objects in memory with:\n"
+                "`for {remote_class_var} in {cls_var}.{attr}.all(): {remote_class_var}.xyz = ...`\n"
+                "Annotate new objects from the database with:\n"
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).annotate(...)`",
                 attr=attr_name,
                 cls=model.__name__,
                 cls_var=model.__name__.lower(),
@@ -154,10 +160,10 @@ def rebind_related_manager_via_descriptor(
             __debuggerskip__ = True  # (ipython+ipdb?)
             qs: QuerySet = original_manager_get_queryset(self, *args, **kwargs)()
             qs._shouty_metadata = ShoutyMetadata(
-                attr=self.field.remote_field.get_accessor_name(),
-                cls=self.field.remote_field.model.__name__,
-                x_related_name=self.field.remote_field.get_cache_name() or "...",
-                remote_cls=self.field.model.__name__,
+                model=model,
+                remote_model=remote_model,
+                attr_name=attr_name,
+                related_name=related_name,
             )
             return qs
 
@@ -174,6 +180,7 @@ def new_deferredattribute_check_parent_chain(
     self: DeferredAttribute, instance: Model, name: Optional[Text] = None
 ) -> Any:
     """
+
     When using .only("x") or .defer("y"), access to "y" should be prohibited.
     """
     __traceback_hide__ = True  # django
@@ -226,7 +233,14 @@ old_queryset_clone = QuerySet._clone
 def new_queryset_clone(self: QuerySet) -> QuerySet:
     qs = old_queryset_clone(self)
     qs._shouty_metadata: ShoutyMetadata = getattr(
-        qs, "_shouty_metadata", ShoutyMetadata(attr="", cls="", x_related_name="", remote_cls="")
+        qs,
+        "_shouty_metadata",
+        ShoutyMetadata(
+            model=None,  # type: ignore[arg-type]
+            remote_model=None,  # type: ignore[arg-type]
+            attr_name="shoutyorm_error",
+            related_name="shoutyorm_erroy",
+        ),
     )
     return qs
 
@@ -252,20 +266,25 @@ def new_queryset_filter_or_exclude(self: QuerySet, negate: bool, args: Any, kwar
         and hasattr(instance, "_prefetched_objects_cache")
         and instance._prefetched_objects_cache
     ):
-        metadata = getattr(self, "_shouty_metadata")
+        metadata: ShoutyMetadata = getattr(self, "_shouty_metadata")
         # This is in the prefetched data...
-        if 1:
-            model_name = instance._meta.model_name
+        if metadata.related_name in instance._prefetched_objects_cache:
             # model_cls_name = instance._meta.object_name
-            method = "exclude()" if negate else "filter()"
+            method = "exclude(...)" if negate else "filter(...)"
+
             raise NoMoreFilteringAllowed(
-                "Access to `{metadata.cls}.{metadata.attr}.{method}` is disabled because of an existing `prefetch_related({metadata.x_related_name!r})`\n"
-                "Filter existing objects in memory with `[{model_name} for {model_name} in {metadata.cls}.{metadata.attr}.all() if {model_name} ...]\n"
-                "Filter new objects from the database with `{metadata.remote_cls}.objects.filter(pk={instance_id!r}, ...) for clarity.",
-                metadata=metadata,
+                "Access to `{attr}.{method}` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Filter existing objects in memory with:\n"
+                "`[{remote_class_var} for {remote_class_var} in {cls_var}.{attr}.all() if {remote_class_var} ...]`\n"
+                "Filter new objects from the database with:\n"
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk, ...)`",
                 method=method,
-                model_name=model_name,
-                instance_id=instance.pk,
+                attr=metadata.attr_name,
+                cls=metadata.model.__name__,
+                cls_var=metadata.model.__name__.lower(),
+                x_related_name=metadata.related_name,
+                remote_cls=metadata.remote_model.__name__,
+                remote_class_var=metadata.remote_model.__name__.lower(),
             )
     return old_queryset_filter_or_exclude(self, negate=negate, args=args, kwargs=kwargs)
 
@@ -309,6 +328,7 @@ def new_reverse_foreignkey_descriptor_get(
         return self
 
     manager = old_reverse_foreignkey_descriptor_get(self, instance, cls)
+
     rebind_related_manager_via_descriptor(
         manager=manager,
         instance=instance,
@@ -434,109 +454,11 @@ def new_manytomany_descriptor_get(
         manager=manager,
         instance=instance,
         model=related_model,
-        remote_model=manager.model.__name__,
+        remote_model=manager.model,
         attr_name=related_name,
         related_name=related_name,
     )
 
-    return manager
-
-    # If there's no prefetch_related() usage at all, m2ms will be N+1
-    if not hasattr(instance, "_prefetched_objects_cache"):
-        exception = MissingManyToManyField(
-            "Access to `{cls}.{attr}.all()` was prevented.\n"
-            "To fetch the `{remote_cls}` objects, add `prefetch_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
-                attr=related_name,
-                cls=related_model.__name__,
-                x_related_name=related_name or "...",
-                remote_cls=remote_cls,
-            )
-        )
-        exception.__cause__ = None
-        manager.all = exception_raising(manager.all, exception)
-    # There is a prefetch_related() call, but it doesn't look like it includes
-    # this model, so it should be added in...
-    elif (
-        instance._prefetched_objects_cache
-        and related_name not in instance._prefetched_objects_cache
-    ):
-        exception = MissingManyToManyField(
-            "Access to `{cls}.{attr}.all()` was prevented.\n"
-            "To fetch the `{remote_cls}` objects, add {x_related_name!r} to the existing `prefetch_related({existing_prefetch!s})` part of the query where `{cls}` objects are selected.".format(
-                attr=related_name,
-                cls=related_model.__name__,
-                x_related_name=related_name or "...",
-                remote_cls=remote_cls,
-                existing_prefetch=", ".join(
-                    "'{}'".format(key) for key in sorted(instance._prefetched_objects_cache.keys())
-                ),
-            )
-        )
-        exception.__cause__ = None
-        manager.all = exception_raising(manager.all, exception)
-    elif instance._prefetched_objects_cache and related_name in instance._prefetched_objects_cache:
-        manager.exclude = exception_raising(
-            manager.exclude,
-            NoMoreFilteringAllowed(
-                "Access to `{cls}.{attr}.exclude(...)` was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Exclude existing objects in memory with `[{remote_class_var} for {remote_class_var} in {cls}.{attr}.all() if {remote_class_var} ...]\n"
-                "Exclude new objects from the database with `{remote_cls}.objects.filter(pk={cls_var}.pk).exclude(...)` for clarity.",
-                attr=related_name,
-                cls=related_model.__name__,
-                cls_var=related_model.__name__.lower(),
-                x_related_name=related_name,
-                remote_cls=remote_cls,
-                remote_class_var=remote_cls.lower(),
-            ),
-        )
-        manager.filter = exception_raising(
-            manager.filter,
-            NoMoreFilteringAllowed(
-                "Access to `{cls}.{attr}.filter(...)` was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Filter existing objects in memory with `[{remote_class_var} for {remote_class_var} in {cls}.{attr}.all() if {remote_class_var} ...]\n"
-                "Filter new objects from the database with `{remote_cls}.objects.filter(pk={cls_var}.pk, ...)` for clarity.",
-                attr=related_name,
-                cls=related_model.__name__,
-                cls_var=related_model.__name__.lower(),
-                x_related_name=related_name,
-                remote_cls=remote_cls,
-                remote_class_var=remote_cls.lower(),
-            ),
-        )
-
-        manager.annotate = exception_raising(
-            manager.annotate,
-            NoMoreFilteringAllowed(
-                "Access to `{cls}.{attr}.annotate(...)` was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Annotate existing objects in memory with `for {remote_class_var} in {cls}.{attr}.all(): {remote_class_var}.xyz = ...\n"
-                "Annotate new objects from the database with `{remote_cls}.objects.filter(pk={cls_var}.pk).annotate(...)` for clarity.",
-                attr=related_name,
-                cls=related_model.__name__,
-                cls_var=related_model.__name__.lower(),
-                x_related_name=related_name,
-                remote_cls=remote_cls,
-                remote_class_var=remote_cls.lower(),
-            ),
-        )
-        # This is necessary so that attempts to escape the manager by doing
-        # .all().filter() can still be caught, and have the relevant context to render
-        # their exception.
-        original_manager_get_queryset = manager.get_queryset.__get__
-
-        def new_manager_get_queryset(self: Manager, *args: Any, **kwargs: Any):
-            __traceback_hide__ = True  # django
-            __tracebackhide__ = True  # pytest (+ipython?)
-            __debuggerskip__ = True  # (ipython+ipdb?)
-            qs: QuerySet = original_manager_get_queryset(self, *args, **kwargs)()
-            qs._shouty_metadata = ShoutyMetadata(
-                attr=self.field.remote_field.get_accessor_name(),
-                cls=self.field.remote_field.model.__name__,
-                x_related_name=self.field.remote_field.get_cache_name() or "...",
-                remote_cls=self.field.model.__name__,
-            )
-            return qs
-
-        manager.get_queryset = new_manager_get_queryset.__get__(manager)
     return manager
 
 
