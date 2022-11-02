@@ -16,7 +16,9 @@ from shoutyorm.errors import (
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
-        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        DATABASES={
+            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
+        },
         INSTALLED_APPS=("shoutyorm",),
         MIDDLEWARE=(),
         TEMPLATES=[
@@ -56,7 +58,9 @@ class TemplateTestCase(TestCase):  # type: ignore
         class FakeTemplatePermission(models.Model):
             title = models.CharField(max_length=100)
             codename = models.CharField(max_length=100)
-            content_type = models.ForeignKey(FakeTemplateContentType, on_delete=models.CASCADE)
+            content_type = models.ForeignKey(
+                FakeTemplateContentType, on_delete=models.CASCADE
+            )
 
         try:
             with connection.schema_editor() as editor:

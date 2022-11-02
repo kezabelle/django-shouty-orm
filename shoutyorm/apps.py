@@ -39,5 +39,7 @@ class Shout(AppConfig):  # type: ignore
         return patch(
             invalid_locals=getattr(settings, "SHOUTY_LOCAL_FIELDS", True),
             invalid_relations=getattr(settings, "SHOUTY_RELATION_FIELDS", True),
-            invalid_reverse_relations=getattr(settings, "SHOUTY_RELATION_REVERSE_FIELDS", True),
+            invalid_reverse_relations=getattr(
+                settings, "SHOUTY_RELATION_REVERSE_FIELDS", True
+            ),
         )

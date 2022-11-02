@@ -11,7 +11,9 @@ from shoutyorm.errors import MissingManyToManyField
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
-        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        DATABASES={
+            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
+        },
         INSTALLED_APPS=("shoutyorm",),
         MIDDLEWARE=(),
         TEMPLATES=[
@@ -147,7 +149,9 @@ class NestedManyToManyTestCase(TestCase):
         item.groups.add(group)
 
         with self.assertNumQueries(3):
-            item2 = self.Item.objects.prefetch_related("groups", "groups__nested").get(pk=item.pk)
+            item2 = self.Item.objects.prefetch_related("groups", "groups__nested").get(
+                pk=item.pk
+            )
 
         with self.assertNumQueries(0):
             (item_group,) = item2.groups.all()
@@ -186,7 +190,9 @@ class NestedManyToManyTestCase(TestCase):
         with self.assertNumQueries(3):
             item2 = self.Item.objects.prefetch_related(
                 "groups",
-                models.Prefetch("groups__nested", self.NestedGroup.objects.filter(title="nested")),
+                models.Prefetch(
+                    "groups__nested", self.NestedGroup.objects.filter(title="nested")
+                ),
             ).get(pk=item.pk)
 
         with self.assertNumQueries(0):
@@ -205,7 +211,9 @@ class NestedManyToManyTestCase(TestCase):
 
         with self.assertNumQueries(3):
             item2 = self.Item.objects.prefetch_related(
-                models.Prefetch("groups__nested", self.NestedGroup.objects.filter(title="nested")),
+                models.Prefetch(
+                    "groups__nested", self.NestedGroup.objects.filter(title="nested")
+                ),
             ).get(pk=item.pk)
 
         with self.assertNumQueries(0):
@@ -252,7 +260,9 @@ class MultipleManyToManyTestCase(TestCase):
         thing.unrelatable.add(self.RelatedThing2.objects.create(title="unrelatable"))
 
         with self.assertNumQueries(3):
-            i = self.Thing.objects.prefetch_related("relatable", "unrelatable").get(pk=thing.pk)
+            i = self.Thing.objects.prefetch_related("relatable", "unrelatable").get(
+                pk=thing.pk
+            )
         with self.assertNumQueries(0):
             tuple(i.relatable.all())
             tuple(i.unrelatable.all())

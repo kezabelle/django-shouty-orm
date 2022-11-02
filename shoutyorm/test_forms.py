@@ -9,7 +9,9 @@ from shoutyorm.errors import MissingLocalField, MissingManyToManyField
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
-        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        DATABASES={
+            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
+        },
         INSTALLED_APPS=("shoutyorm",),
         MIDDLEWARE=(),
         TEMPLATES=[
@@ -66,7 +68,9 @@ class FormTestCase(TestCase):  # type: ignore
 
         obj = self.FakePermission.objects.create(
             title="fake permission",
-            related_thing=self.FakeContentType.objects.create(title="fake content-type"),
+            related_thing=self.FakeContentType.objects.create(
+                title="fake content-type"
+            ),
         )
 
         with self.assertNumQueries(2):
@@ -85,7 +89,9 @@ class FormTestCase(TestCase):  # type: ignore
     def test_local_in_form(self) -> None:
         instance = self.FakePermission.objects.create(
             title="fake permission",
-            related_thing=self.FakeContentType.objects.create(title="fake content-type"),
+            related_thing=self.FakeContentType.objects.create(
+                title="fake content-type"
+            ),
         )
 
         class UserForm(forms.ModelForm):  # type: ignore

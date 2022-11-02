@@ -8,7 +8,9 @@ from shoutyorm.errors import MissingOneToOneField, RedundantSelection
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
-        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        DATABASES={
+            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
+        },
         INSTALLED_APPS=("shoutyorm",),
         MIDDLEWARE=(),
         TEMPLATES=[
@@ -163,9 +165,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # INSERT shoutyorm_cassettesidea
         # RELEASE
         with self.assertNumQueries(4):
-            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!", defaults={"side_b": side_b}
-            )
+            side_a, created = self.CassetteSideA.objects.select_related(
+                "side_b"
+            ).get_or_create(title="Side A!", defaults={"side_b": side_b})
         self.assertTrue(created)
         with self.assertNumQueries(0):
             side_a.side_b
@@ -173,9 +175,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # This will force going through the get path.
         # SELECT shoutyorm_cassettesidea + shoutyorm_cassettesideb
         with self.assertNumQueries(1):
-            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!", defaults={"side_b": side_b}
-            )
+            side_a, created = self.CassetteSideA.objects.select_related(
+                "side_b"
+            ).get_or_create(title="Side A!", defaults={"side_b": side_b})
         self.assertFalse(created)
         with self.assertNumQueries(0):
             side_a.side_b
@@ -188,9 +190,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # INSERT shoutyorm_cassettesidea
         # RELEASE
         with self.assertNumQueries(4):
-            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!", defaults={"side_b_id": side_b.pk}
-            )
+            side_a, created = self.CassetteSideA.objects.select_related(
+                "side_b"
+            ).get_or_create(title="Side A!", defaults={"side_b_id": side_b.pk})
         self.assertTrue(created)
         # SELECT shoutyorm_cassettesideb
         # This is allowed to do a query because we cannot avoid one; see
@@ -201,9 +203,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # This will force going through the get path, and doesn't error.
         # SELECT shoutyorm_cassettesidea + shoutyorm_cassettesideb
         with self.assertNumQueries(1):
-            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
-                title="Side A!", defaults={"side_b_id": side_b.pk}
-            )
+            side_a, created = self.CassetteSideA.objects.select_related(
+                "side_b"
+            ).get_or_create(title="Side A!", defaults={"side_b_id": side_b.pk})
         self.assertFalse(created)
         with self.assertNumQueries(0):
             side_a.side_b

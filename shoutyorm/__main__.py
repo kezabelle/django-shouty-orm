@@ -6,7 +6,9 @@ from django.conf import settings
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
-        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        DATABASES={
+            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
+        },
         INSTALLED_APPS=("shoutyorm",),
         MIDDLEWARE=(),
         TEMPLATES=[

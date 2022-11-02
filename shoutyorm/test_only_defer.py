@@ -8,7 +8,9 @@ from shoutyorm.errors import MissingForeignKeyField, MissingLocalField
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
-        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        DATABASES={
+            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
+        },
         INSTALLED_APPS=("shoutyorm",),
         MIDDLEWARE=(),
         TEMPLATES=[
@@ -58,7 +60,9 @@ class OnlyDeferTestCase(TestCase):
         with self.assertNumQueries(2):
             self.Item.objects.create(
                 title="test item",
-                related_thing=self.RelatedThing.objects.create(title="test related thing"),
+                related_thing=self.RelatedThing.objects.create(
+                    title="test related thing"
+                ),
             )
         with self.assertNumQueries(1):
             (item,) = self.Item.objects.all()

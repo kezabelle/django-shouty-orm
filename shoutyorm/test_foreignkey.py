@@ -13,7 +13,9 @@ from shoutyorm.errors import (
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
-        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+        DATABASES={
+            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
+        },
         INSTALLED_APPS=("shoutyorm",),
         MIDDLEWARE=(),
         TEMPLATES=[
@@ -40,7 +42,10 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
         class User(models.Model):
             name = models.CharField(max_length=100)
             role = models.ForeignKey(
-                Role, on_delete=models.CASCADE, db_column="role_reference", related_name="users"
+                Role,
+                on_delete=models.CASCADE,
+                db_column="role_reference",
+                related_name="users",
             )
 
         try:
@@ -101,7 +106,9 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
         Required patching Model.save_base to track whether an instance was freshly
         minted or not.
         """
-        user = self.User.objects.create(name="user!", role=self.Role.objects.create(title="admin"))
+        user = self.User.objects.create(
+            name="user!", role=self.Role.objects.create(title="admin")
+        )
         # Already cached, no query
         with self.assertNumQueries(0):
             self.assertEqual(user.role.title, "admin")
@@ -146,7 +153,9 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             title = models.CharField(max_length=100)
 
         class OtherThing(models.Model):
-            role = models.ForeignKey(ReversableRole, on_delete=models.SET_NULL, null=True)
+            role = models.ForeignKey(
+                ReversableRole, on_delete=models.SET_NULL, null=True
+            )
 
         class ReversableUser(models.Model):
             name = models.CharField(max_length=100)
