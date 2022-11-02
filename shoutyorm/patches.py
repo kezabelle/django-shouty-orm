@@ -22,13 +22,11 @@ from shoutyorm.errors import (
     MissingForeignKeyField,
     MissingManyToManyField,
     RedundantSelection,
+    NoMoreFilteringAllowed,
 )
 
 # Hide the patch stacks from unittest output?
 __unittest = True
-
-
-old_queryset_fetch_all = QuerySet._fetch_all
 
 
 # This is used so that when .only() and .defer() are used, I can prevent the
@@ -81,6 +79,42 @@ def new_deferredattribute_check_parent_chain(
         exception.__cause__ = None
         raise exception
     return val
+
+
+# Because you can "escape" from the manager monkeypatch (see new_manytomany_descriptor_get and
+# new_reverse_foreignkey_descriptor_get) by prefetching and then creating a new queryset from the
+# manager, we need to block that queryset's filtering behaviour too.
+#
+# e.g. given:
+# items = MyModel.objects.prefetch_related('x').all()
+# you can escape it by doing:
+# my_x = items[0].x_set.all().filter(...)
+# the .all is allowed because of the prefetch, but it generates a QuerySet which doesn't know
+# it shouldn't be allowed to filter etc.
+old_queryset_filter_or_exclude = QuerySet._filter_or_exclude
+
+
+def new_queryset_filter_or_exclude(self: QuerySet, negate: bool, args: Any, kwargs: Any):
+    print(self._known_related_objects)
+    instance = self._hints.get("instance", None)
+    if (
+        instance is not None
+        and hasattr(instance, "_prefetched_objects_cache")
+        and instance._prefetched_objects_cache
+    ):
+        import pdb
+
+        pdb.set_trace()
+        # This is in the prefetched data...
+        if 1:
+            model_name = instance._meta.model_name
+            model_cls_name = instance._meta.object_name
+            raise NoMoreFilteringAllowed(
+                "Access to `filter()` and `exclude()` is disabled because of an existing `prefetch_related()`\n"
+                f"Filter existing objects in memory with `[{model_name} for {model_name} in ... if {model_name} ...]\n"
+                f"Filter new objects from the database with `{model_cls_name}.objects.filter(pk={instance.pk!r}, ...) for clarity."
+            )
+    return old_queryset_filter_or_exclude(self, negate=negate, args=args, kwargs=kwargs)
 
 
 # This is when you do "mymodel.myothermodel_set.all()" where the foreignkey
@@ -585,4 +619,6 @@ def patch(invalid_locals: bool, invalid_relations: bool, invalid_reverse_relatio
             ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
             ReverseManyToOneDescriptor._shouty = True
 
+    QuerySet._filter_or_exclude = new_queryset_filter_or_exclude
+    QuerySet._shouty = True
     return True
