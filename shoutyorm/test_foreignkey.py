@@ -326,11 +326,11 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             name="Bert", role=self.Role.objects.create(title="Not quite admin")
         )
         with self.assertNumQueries(2):
-            (role,) = self.Role.objects.prefetch_related("users").all()
+            (role,) = self.Role.objects.prefetch_related("users")
 
-        with self.assertNumQueries(1):
+        with self.subTest("Manager filter"), self.assertNumQueries(1):
             self.assertTrue(role.users.filter(pk=role.pk).exists())
-        with self.assertNumQueries(1):
+        with self.subTest("QuerySet filter"), self.assertNumQueries(1):
             self.assertTrue(role.users.all().filter(pk=role.pk).exists())
 
     def test_filter_and_exclude_and_annotate_when_prefetched(self):
