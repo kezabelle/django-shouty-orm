@@ -29,21 +29,34 @@ What it does
 All of the following examples should raise an exception because they pose a probable
 additional +1 (or more) queries.
 
-Accessing fields intentionally not selected::
+Accessing fields intentionally not selected
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When using ``only()`` or ``defer()``, attempts to use attributes not selected will
+raise an exception instead of doing **+1 query**.
+
+Using ``only``::
 
     >>> u = User.objects.only('pk').get(pk=1)
     >>> u.username
-    MissingLocalField("Access to username [...]")
+    MissingLocalField("Access to `User.username` was prevented [...]")
+
+Using ``defer``::
+
     >>> u = User.objects.defer('username').get(pk=1)
     >>> u.email
     >>> u.username
-    MissingLocalField("Access to username [...]")
+    MissingLocalField("Access to `User.username` was prevented [...]")
 
-Access to relationships that have not been selected::
+Accessing ``OneToOneField`` relations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    >>> le = LogEntry.objects.get(pk=1)
-    >>> le.action_flag
-    >>> le.user.pk
+When selecting a model instance which has a ``OneToOne`` relationship with another
+model, trying to access that attribute will raise an exception instead of doing **1 query**::
+
+    >>> event = Event.objects.get(pk=1)
+    >>> assert event.type == "add"
+    >>> event.user.pk
     MissingRelationField("Access to user [...]")
 
 Access to reverse relationships that have not been selected::
@@ -51,6 +64,10 @@ Access to reverse relationships that have not been selected::
     >>> u = User.objects.only('pk').get(pk=1)
     >>> u.logentry_set.all()
     MissingReverseRelationField("Access to logentry_set [...]")
+
+
+Accessing ``ForeignKey`` and ``ManyToManyField`` relations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Pretty much all relationship access (normal or reverse, ``OneToOne`` or
 ``ForeignKey`` or ``ManyToMany``) should be blocked unless ``select_related`` or
