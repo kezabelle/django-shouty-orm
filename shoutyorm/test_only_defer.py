@@ -3,14 +3,12 @@ import django
 from django.conf import settings
 from django.test import TestCase
 from django.db import models, connection, DatabaseError
-from shoutyorm.errors import MissingForeignKeyField, MissingLocalField
+from shoutyorm.errors import MissingRelationField, MissingLocalField
 
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
-        DATABASES={
-            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
-        },
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
         INSTALLED_APPS=("shoutyorm",),
         MIDDLEWARE=(),
         TEMPLATES=[
@@ -60,9 +58,7 @@ class OnlyDeferTestCase(TestCase):
         with self.assertNumQueries(2):
             self.Item.objects.create(
                 title="test item",
-                related_thing=self.RelatedThing.objects.create(
-                    title="test related thing"
-                ),
+                related_thing=self.RelatedThing.objects.create(title="test related thing"),
             )
         with self.assertNumQueries(1):
             (item,) = self.Item.objects.all()
@@ -71,7 +67,7 @@ class OnlyDeferTestCase(TestCase):
             item.title
             item.created
             item.modified
-        with self.assertRaises(MissingForeignKeyField):
+        with self.assertRaises(MissingRelationField):
             item.related_thing
 
     def test_only(self):
@@ -119,7 +115,7 @@ class OnlyDeferTestCase(TestCase):
                 item.modified
             # TODO: this returns the correct thing (weirdly!) but is inconsistent with only() above.
             with self.assertRaises(
-                MissingForeignKeyField,
+                MissingRelationField,
             ):
                 item.related_thing
 

@@ -31,18 +31,6 @@ class MissingRelationField(ShoutyAttributeError):
     __slots__ = ()
 
 
-class MissingForeignKeyField(MissingRelationField):
-    __slots__ = ()
-
-
-class MissingManyToManyField(MissingRelationField):
-    __slots__ = ()
-
-
-class MissingOneToOneField(MissingRelationField):
-    __slots__ = ()
-
-
 class MissingReverseRelationField(MissingRelationField):
     __slots__ = ()
 

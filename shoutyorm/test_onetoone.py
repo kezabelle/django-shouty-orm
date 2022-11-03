@@ -3,14 +3,12 @@ import django
 from django.conf import settings
 from django.db import models, connection, DatabaseError
 from django.test import TestCase
-from shoutyorm.errors import MissingOneToOneField, RedundantSelection
+from shoutyorm.errors import MissingRelationField
 
 if not settings.configured:
     settings.configure(
         SECRET_KEY="shoutyorm-runtests" * 10,
-        DATABASES={
-            "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
-        },
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
         INSTALLED_APPS=("shoutyorm",),
         MIDDLEWARE=(),
         TEMPLATES=[
@@ -75,7 +73,7 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
                 side_a.pk
                 side_a.side_b_id
                 with self.assertRaisesMessage(
-                    MissingOneToOneField,
+                    MissingRelationField,
                     "Access to `CassetteSideA.side_b` was prevented.\n"
                     "If you only need access to the column identifier, use `CassetteSideA.side_b_id` instead.\n"
                     "To fetch the `CassetteSideB` object, add `prefetch_related('side_b')` or `select_related('side_b')` to the query where `CassetteSideA` objects are selected.",
@@ -165,9 +163,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # INSERT shoutyorm_cassettesidea
         # RELEASE
         with self.assertNumQueries(4):
-            side_a, created = self.CassetteSideA.objects.select_related(
-                "side_b"
-            ).get_or_create(title="Side A!", defaults={"side_b": side_b})
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b": side_b}
+            )
         self.assertTrue(created)
         with self.assertNumQueries(0):
             side_a.side_b
@@ -175,9 +173,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # This will force going through the get path.
         # SELECT shoutyorm_cassettesidea + shoutyorm_cassettesideb
         with self.assertNumQueries(1):
-            side_a, created = self.CassetteSideA.objects.select_related(
-                "side_b"
-            ).get_or_create(title="Side A!", defaults={"side_b": side_b})
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b": side_b}
+            )
         self.assertFalse(created)
         with self.assertNumQueries(0):
             side_a.side_b
@@ -190,9 +188,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # INSERT shoutyorm_cassettesidea
         # RELEASE
         with self.assertNumQueries(4):
-            side_a, created = self.CassetteSideA.objects.select_related(
-                "side_b"
-            ).get_or_create(title="Side A!", defaults={"side_b_id": side_b.pk})
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b_id": side_b.pk}
+            )
         self.assertTrue(created)
         # SELECT shoutyorm_cassettesideb
         # This is allowed to do a query because we cannot avoid one; see
@@ -203,9 +201,9 @@ class ForwardOneToOneDescriptorTestCase(TestCase):
         # This will force going through the get path, and doesn't error.
         # SELECT shoutyorm_cassettesidea + shoutyorm_cassettesideb
         with self.assertNumQueries(1):
-            side_a, created = self.CassetteSideA.objects.select_related(
-                "side_b"
-            ).get_or_create(title="Side A!", defaults={"side_b_id": side_b.pk})
+            side_a, created = self.CassetteSideA.objects.select_related("side_b").get_or_create(
+                title="Side A!", defaults={"side_b_id": side_b.pk}
+            )
         self.assertFalse(created)
         with self.assertNumQueries(0):
             side_a.side_b
@@ -249,7 +247,7 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
                 side_b.pk
                 side_b.title
                 with self.assertRaisesMessage(
-                    MissingOneToOneField,
+                    MissingRelationField,
                     "Access to `RewindingCassetteSideB.woo_side_a` was prevented.\n"
                     "To fetch the `RewindingCassetteSideA` object, add `prefetch_related('woo_side_a')` or `select_related('woo_side_a')` to the query where `RewindingCassetteSideB` objects are selected.",
                 ):

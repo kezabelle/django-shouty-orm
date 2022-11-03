@@ -8,9 +8,9 @@ from django.db import models, connection, DatabaseError
 from django.db.models import Prefetch, F
 from django.test import TestCase
 from shoutyorm.errors import (
-    MissingForeignKeyField,
     MissingReverseRelationField,
     NoMoreFilteringAllowed,
+    MissingRelationField,
 )
 
 
@@ -74,7 +74,7 @@ class ForwardForeignKeyDescriptorTestCase(TestCase):
                 user.pk
                 user.role_id
                 with self.assertRaisesMessage(
-                    MissingForeignKeyField,
+                    MissingRelationField,
                     "Access to `User.role` was prevented.\n"
                     "If you only need access to the column identifier, use `User.role_id` instead.\n"
                     "To fetch the `Role` object, add `prefetch_related('role')` or `select_related('role')` to the query where `User` objects are selected.",

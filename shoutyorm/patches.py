@@ -21,10 +21,7 @@ from django.db.models.query_utils import DeferredAttribute
 from shoutyorm.errors import (
     MissingReverseRelationField,
     MissingLocalField,
-    MissingOneToOneField,
-    MissingForeignKeyField,
-    MissingManyToManyField,
-    RedundantSelection,
+    MissingRelationField,
     NoMoreFilteringAllowed,
     ShoutyAttributeError,
 )
@@ -613,7 +610,7 @@ def new_reverse_onetoone_descriptor_get(
         # If we encounter an escape hatch of `_shouty_<field>` = 2 it means
         # we want to allow 2 lazy attribute requests to the field.
         if instance._state.fields_cache[escape_hatch_key] is False:
-            exception = MissingOneToOneField(
+            exception = MissingRelationField(
                 "Access to `{cls}.{attr}` was prevented.\n"
                 "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
                     attr=self.related.get_accessor_name(),
@@ -713,7 +710,6 @@ def new_foreignkey_descriptor_get_object(
     __traceback_hide__ = True  # django
     __tracebackhide__ = True  # pytest (+ipython?)
     __debuggerskip__ = True  # (ipython+ipdb?)
-    exception_class = MissingOneToOneField if self.field.one_to_one else MissingForeignKeyField
 
     # Start tro track how much has been lazily acquired. By default they should
     # all be zero.
@@ -735,7 +731,7 @@ def new_foreignkey_descriptor_get_object(
     instance._state.fields_cache[escape_hatch_key] = just_created
 
     if instance._state.fields_cache[escape_hatch_key] is False:
-        exception = exception_class(
+        exception = MissingRelationField(
             "Access to `{cls}.{attr}` was prevented.\n"
             "If you only need access to the column identifier, use `{cls}.{field_column}` instead.\n"
             "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(

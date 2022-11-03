@@ -9,8 +9,11 @@ from django.test import TestCase
 from django.db import models, connection, DatabaseError
 
 from django import VERSION as DJANGO_VERSION
-from shoutyorm import MissingRelationField
-from shoutyorm.errors import MissingManyToManyField, NoMoreFilteringAllowed
+from shoutyorm.errors import (
+    MissingRelationField,
+    NoMoreFilteringAllowed,
+    MissingReverseRelationField,
+)
 
 if not settings.configured:
     settings.configure(
@@ -82,11 +85,22 @@ class ManyToManyTestCase(TestCase):
 
         with self.assertNumQueries(0):
             with self.assertRaisesMessage(
-                MissingManyToManyField,
+                MissingReverseRelationField,
                 "Access to `RelatedGroup.m2mitem_set.all()` was prevented.\n"
                 "To fetch the `M2MItem` objects, add `prefetch_related('m2mitem_set')` to the query where `RelatedGroup` objects are selected.",
             ):
                 group.m2mitem_set.all()
+
+    def test_accessing_prefetched_m2m_is_fine(self) -> None:
+        """
+        Normal use case - failure to prefetch should error loudly
+        """
+        with self.assertNumQueries(3):
+            self.Group.objects.create(title="group")
+            group = self.Group.objects.prefetch_related("m2mitem_set").get()
+
+        with self.assertNumQueries(0):
+            tuple(group.m2mitem_set.all())
 
 
 class NestedManyToManyTestCase(TestCase):
@@ -133,7 +147,7 @@ class NestedManyToManyTestCase(TestCase):
         with self.assertNumQueries(0):
             (item_group,) = item2.groups.all()
             with self.assertRaisesMessage(
-                MissingManyToManyField,
+                MissingRelationField,
                 "Access to `RelatedGroupForNesting.nested.all()` was prevented.\n"
                 "To fetch the `NestedGroup` objects, add `prefetch_related('nested')` to the query where `RelatedGroupForNesting` objects are selected.",
             ):
