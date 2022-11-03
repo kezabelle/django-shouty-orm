@@ -56,6 +56,25 @@ class RealworldCreationTestCase(TestCase):
         existing_circle = self.Circle.objects.create(
             title="existing circle", rect=existing_rectangle
         )
-        with self.assertNumQueries(1):
+        with self.subTest("plain create()"), self.assertNumQueries(1):
             new_box = self.Box.objects.create(title="new box", related=existing_rectangle)
-            new_box.related.circle
+
+        with self.subTest("get_or_create() with select_related()"), self.assertNumQueries(1):
+            new_box2, created = self.Box.objects.select_related(
+                "related", "related__circle"
+            ).get_or_create(title="new box", defaults={"related": existing_rectangle})
+            self.assertFalse(created)
+            new_box2.related.circle
+
+        with self.subTest("get_or_create() without select_related()"), self.assertNumQueries(4):
+            new_box3, created = self.Box.objects.get_or_create(
+                title="new box3", defaults={"related": existing_rectangle}
+            )
+            self.assertTrue(created)
+            new_box3.related.circle
+
+        with self.subTest("plain create() with select_related()"), self.assertNumQueries(1):
+            new_box4 = self.Box.objects.select_related("related", "related__circle").create(
+                title="new box", related=existing_rectangle
+            )
+            new_box4.related.circle
