@@ -198,6 +198,100 @@ def rebind_related_manager_via_descriptor(
                 remote_class_var=remote_model.__name__.lower(),
             ),
         )
+        # This is just an early warning. Attempting to use any of the instances
+        # should hopefully raise a MissingLocalField exception anyway:
+        # Access to `Model.attr_id` was prevented.\n"
+        # Remove the `only(...)` or remove the `defer(...)` where `Model` objects are selected
+        manager.defer = exception_raising(
+            manager.defer,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.defer(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "You already have `{remote_cls}` instances in-memory.",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        # This is just an early warning. Attempting to use any of the instances
+        # should hopefully raise a MissingLocalField exception anyway:
+        # Access to `Model.attr_id` was prevented.\n"
+        # Remove the `only(...)` or remove the `defer(...)` where `Model` objects are selected
+        manager.only = exception_raising(
+            manager.only,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.only(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "You already have `{remote_cls}` instances in-memory.",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.reverse = exception_raising(
+            manager.reverse,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.reverse()` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Convert the existing in memory `{remote_cls}` instances with:\n"
+                "`tuple(reversed({cls_var}.{attr}.all()))`\n"
+                "Fetch the latest `{remote_cls}` from the database with:\n"
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).order_by(...)`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.distinct = exception_raising(
+            manager.distinct,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.distinct(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.values = exception_raising(
+            manager.values,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.values(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Convert the existing in memory `{remote_cls}` instances with:\n"
+                '`[{{"attr1": {remote_class_var}.attr1, "attr2": {remote_class_var}.attr2, ...}} for {remote_class_var} in {cls_var}.{attr}.all()]`\n'
+                "Fetch the latest `{remote_cls}` from the database with:\n"
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).values(...)`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.values_list = exception_raising(
+            manager.values_list,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.values_list(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Convert the existing in memory `{remote_cls}` instances with:\n"
+                '`[({remote_class_var}.attr1, "attr2": {remote_class_var}.attr2, ...) for {remote_class_var} in {cls_var}.{attr}.all()]`\n'
+                "Fetch the latest `{remote_cls}` from the database with:\n"
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).values_list(...)`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
 
         # This is necessary so that attempts to escape the manager by doing
         # .all().filter() can still be caught, and have the relevant context to render

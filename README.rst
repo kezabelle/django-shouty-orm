@@ -83,23 +83,23 @@ Methods which are blocked when ``prefetch_related`` data exists.
 - ``RelatedManager.earliest``
 - ``RelatedManager.latest``
 - ``RelatedManager.in_bulk``
+- ``RelatedManager.defer``
+- ``RelatedManager.only``
+- ``RelatedManager.reverse``
+- ``RelatedManager.distinct``
+- ``RelatedManager.values``
+- ``RelatedManager.values_list`
 
 Methods which aren't yet blocked
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 But they probably should be? I need to check whether they always do queries...
 
-- ``RelatedManager.defer``
-- ``RelatedManager.only``
-- ``RelatedManager.reverse``
-- ``RelatedManager.distinct``
 - ``RelatedManager.extra``
 - ``RelatedManager.order_by``
 - ``RelatedManager.alias``
 - ``RelatedManager.select_related``
-- ``RelatedManager.prefetch_related``
-- ``RelatedManager.values``
-- ``RelatedManager.values_list``
+- ``RelatedManager.prefetch_related```
 
 Methods which probably won't ever be blocked
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
