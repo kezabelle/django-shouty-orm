@@ -68,7 +68,7 @@ def rebind_related_manager_via_descriptor(
             manager.all,
             MissingReverseRelationField(
                 "Access to `{cls}.{attr}.all()` was prevented.\n"
-                "To fetch the `{remote_cls}` objects, add `prefetch_related({related_name!r})` to the query where `{cls}` objects are selected.",
+                "To fetch the `{remote_cls}` objects, add `prefetch_related({attr!r})` to the query where `{cls}` objects are selected.",
                 attr=attr_name,
                 cls=model.__name__,
                 related_name=related_name,
