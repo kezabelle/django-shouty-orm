@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 from functools import wraps
 
 try:
@@ -9,7 +8,7 @@ except ImportError:  # pragma: no cover
     pass
 
 from django import VERSION as DJANGO_VERSION
-from django.db.models import Model, Manager, QuerySet
+from django.db.models import Model, Manager
 from django.db.models.fields.related_descriptors import (
     ReverseManyToOneDescriptor,
     ManyToManyDescriptor,
@@ -28,14 +27,6 @@ from shoutyorm.errors import (
 
 # Hide the patch stacks from unittest output?
 __unittest = True
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class ShoutyMetadata:
-    model: Type[Model]
-    remote_model: Type[Model]
-    attr_name: str
-    related_name: str
 
 
 def exception_raising(func: Callable, exception: ShoutyAttributeError):
@@ -356,26 +347,6 @@ def rebind_related_manager_via_descriptor(
                 remote_class_var=remote_model.__name__.lower(),
             ),
         )
-
-        # This is necessary so that attempts to escape the manager by doing
-        # .all().filter() can still be caught, and have the relevant context to render
-        # their exception.
-        original_manager_get_queryset = manager.get_queryset.__get__
-
-        def new_manager_get_queryset(self: Manager, *args: Any, **kwargs: Any):
-            __traceback_hide__ = True  # django
-            __tracebackhide__ = True  # pytest (+ipython?)
-            __debuggerskip__ = True  # (ipython+ipdb?)
-            qs: QuerySet = original_manager_get_queryset(self, *args, **kwargs)()
-            qs._shouty_metadata = ShoutyMetadata(
-                model=model,
-                remote_model=remote_model,
-                attr_name=attr_name,
-                related_name=related_name,
-            )
-            return qs
-
-        manager.get_queryset = new_manager_get_queryset.__get__(manager)
     return manager
 
 
@@ -430,71 +401,6 @@ def new_deferredattribute_check_parent_chain(
         exception.__cause__ = None
         raise exception
     return val
-
-
-# So that the manager can pass down information to the QuerySet, and the QuerySet
-# itself keeps that around while chaining operations (e.g. .all().filter() we need
-# to patch in an extra bit of data
-old_queryset_clone = QuerySet._clone
-
-
-def new_queryset_clone(self: QuerySet) -> QuerySet:
-    qs = old_queryset_clone(self)
-    qs._shouty_metadata: ShoutyMetadata = getattr(
-        qs,
-        "_shouty_metadata",
-        ShoutyMetadata(
-            model=None,  # type: ignore[arg-type]
-            remote_model=None,  # type: ignore[arg-type]
-            attr_name="shoutyorm_error",
-            related_name="shoutyorm_erroy",
-        ),
-    )
-    return qs
-
-
-# Because you can "escape" from the manager monkeypatch (see new_manytomany_descriptor_get and
-# new_reverse_foreignkey_descriptor_get) by prefetching and then creating a new queryset from the
-# manager, we need to block that queryset's filtering behaviour too.
-#
-# e.g. given:
-# items = MyModel.objects.prefetch_related('x').all()
-# you can escape it by doing:
-# my_x = items[0].x_set.all().filter(...)
-# the .all is allowed because of the prefetch, but it generates a QuerySet which doesn't know
-# it shouldn't be allowed to filter etc.
-old_queryset_filter_or_exclude = QuerySet._filter_or_exclude
-
-
-def new_queryset_filter_or_exclude(self: QuerySet, negate: bool, args: Any, kwargs: Any):
-    # print(self._known_related_objects)
-    instance = self._hints.get("instance", None)
-    if (
-        instance is not None
-        and hasattr(instance, "_prefetched_objects_cache")
-        and instance._prefetched_objects_cache
-    ):
-        metadata: ShoutyMetadata = getattr(self, "_shouty_metadata")
-        # This is in the prefetched data...
-        if metadata.related_name in instance._prefetched_objects_cache:
-            # model_cls_name = instance._meta.object_name
-            method = "exclude(...)" if negate else "filter(...)"
-
-            raise NoMoreFilteringAllowed(
-                "Access to `{attr}.{method}` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Filter existing objects in memory with:\n"
-                "`[{remote_class_var} for {remote_class_var} in {cls_var}.{attr}.all() if {remote_class_var} ...]`\n"
-                "Filter new objects from the database with:\n"
-                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk, ...)`",
-                method=method,
-                attr=metadata.attr_name,
-                cls=metadata.model.__name__,
-                cls_var=metadata.model.__name__.lower(),
-                x_related_name=metadata.related_name,
-                remote_cls=metadata.remote_model.__name__,
-                remote_class_var=metadata.remote_model.__name__.lower(),
-            )
-    return old_queryset_filter_or_exclude(self, negate=negate, args=args, kwargs=kwargs)
 
 
 # This is when you do "mymodel.myothermodel_set.all()" where the foreignkey
@@ -849,7 +755,4 @@ def patch(invalid_locals: bool, invalid_relations: bool, invalid_reverse_relatio
             ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
             ReverseManyToOneDescriptor._shouty = True
 
-    # QuerySet._filter_or_exclude = new_queryset_filter_or_exclude
-    # QuerySet._clone = new_queryset_clone
-    # QuerySet._shouty = True
     return True
