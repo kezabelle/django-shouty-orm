@@ -612,11 +612,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager filter"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.filter(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
+            "Access to `thing3_set.filter(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
             "Filter existing objects in memory with:\n"
-            "`[relatedthing2 for relatedthing2 in thing2.relatable.all() if relatedthing2 ...]`\n"
+            "`[thing3 for thing3 in relatedthing3.thing3_set.all() if thing3 ...]`\n"
             "Filter new objects from the database with:\n"
-            "`RelatedThing2.objects.filter(thing2=thing2.pk, ...)`",
+            "`Thing3.objects.filter(relatedthing3=relatedthing3.pk, ...)`",
         ):
             (thing,) = related_thing.thing3_set.filter(title="Bert")
 
@@ -629,11 +629,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager exclude"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.exclude(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
+            "Access to `thing3_set.exclude(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
             "Exclude existing objects in memory with:\n"
-            "`[relatedthing2 for relatedthing2 in thing2.relatable.all() if relatedthing2 != ...]`\n"
+            "`[thing3 for thing3 in relatedthing3.thing3_set.all() if thing3 != ...]`\n"
             "Exclude new objects from the database with:\n"
-            "`RelatedThing2.objects.filter(thing2=thing2.pk).exclude(...)`",
+            "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).exclude(...)`",
         ):
             (thing,) = related_thing.thing3_set.exclude(title="Bert")
 
@@ -646,11 +646,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager annotate"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.annotate(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
+            "Access to `thing3_set.annotate(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
             "Annotate existing objects in memory with:\n"
-            "`for relatedthing2 in thing2.relatable.all(): relatedthing2.xyz = ...`\n"
+            "`for thing3 in relatedthing3.thing3_set.all(): thing3.xyz = ...`\n"
             "Annotate new objects from the database with:\n"
-            "`RelatedThing2.objects.filter(thing2=thing2.pk).annotate(...)`",
+            "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).annotate(...)`",
         ):
             (thing,) = related_thing.thing3_set.annotate(
                 title2=models.Value(True, output_field=models.BooleanField())
@@ -665,11 +665,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager earliest"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.earliest(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Fetch the earliest existing `RelatedThing2` in memory with:\n"
-            "`sorted(thing2.relatable.all(), key=itertools.attrgetter(...))[0]`\n"
-            "Fetch the earliest `RelatedThing2` from the database with:\n"
-            "`RelatedThing2.objects.order_by(...).get(thing2=thing2.pk)`",
+            "Access to `thing3_set.earliest(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Fetch the earliest existing `Thing3` in memory with:\n"
+            "`sorted(relatedthing3.thing3_set.all(), key=itertools.attrgetter(...))[0]`\n"
+            "Fetch the earliest `Thing3` from the database with:\n"
+            "`Thing3.objects.order_by(...).get(relatedthing3=relatedthing3.pk)`",
         ):
             (thing,) = related_thing.thing3_set.earliest("title")
 
@@ -682,11 +682,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager latest"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.latest(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Fetch the latest existing `RelatedThing2` in memory with:\n"
-            "`sorted(thing2.relatable.all(), reverse=True, key=itertools.attrgetter(...))[0]`\n"
-            "Fetch the latest `RelatedThing2` from the database with:\n"
-            "`RelatedThing2.objects.order_by(...).get(thing2=thing2.pk)`",
+            "Access to `thing3_set.latest(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Fetch the latest existing `Thing3` in memory with:\n"
+            "`sorted(relatedthing3.thing3_set.all(), reverse=True, key=itertools.attrgetter(...))[0]`\n"
+            "Fetch the latest `Thing3` from the database with:\n"
+            "`Thing3.objects.order_by(...).get(relatedthing3=relatedthing3.pk)`",
         ):
             (thing,) = related_thing.thing3_set.latest("title")
 
@@ -707,11 +707,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager in_bulk"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.in_bulk(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Convert the existing in memory `RelatedThing2` instances with:\n"
-            "`{relatedthing2.pk: relatedthing2 for relatedthing2 in thing2.relatable.all()}`\n"
-            "Fetch the latest `RelatedThing2` from the database with:\n"
-            "`RelatedThing2.objects.filter(thing2=thing2.pk).in_bulk()`",
+            "Access to `thing3_set.in_bulk(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Convert the existing in memory `Thing3` instances with:\n"
+            "`{thing3.pk: thing3 for thing3 in relatedthing3.thing3_set.all()}`\n"
+            "Fetch the latest `Thing3` from the database with:\n"
+            "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).in_bulk()`",
         ):
             (thing,) = related_thing.thing3_set.in_bulk()
 
@@ -724,8 +724,8 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager defer"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.defer(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "You already have `RelatedThing2` instances in-memory.",
+            "Access to `thing3_set.defer(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "You already have `Thing3` instances in-memory.",
         ):
             (thing,) = related_thing.thing3_set.defer("title")
 
@@ -734,8 +734,8 @@ class ReverseManyToManyMethodsTestCase(TestCase):
         # Remove the `only(...)` or remove the `defer(...)` where `Model` objects are selected
         with self.subTest("Manager only"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.only(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "You already have `RelatedThing2` instances in-memory.",
+            "Access to `thing3_set.only(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "You already have `Thing3` instances in-memory.",
         ):
             (thing,) = related_thing.thing3_set.only("title")
 
@@ -748,11 +748,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager reversed"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.reverse()` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Convert the existing in memory `RelatedThing2` instances with:\n"
-            "`tuple(reversed(thing2.relatable.all()))`\n"
-            "Fetch the latest `RelatedThing2` from the database with:\n"
-            "`RelatedThing2.objects.filter(thing2=thing2.pk).order_by(...)`",
+            "Access to `thing3_set.reverse()` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Convert the existing in memory `Thing3` instances with:\n"
+            "`tuple(reversed(relatedthing3.thing3_set.all()))`\n"
+            "Fetch the latest `Thing3` from the database with:\n"
+            "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).order_by(...)`",
         ):
             (thing,) = related_thing.thing3_set.reverse()
 
@@ -765,7 +765,7 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager distinct"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.distinct(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`",
+            "Access to `thing3_set.distinct(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`",
         ):
             (thing,) = related_thing.thing3_set.distinct()
 
@@ -778,11 +778,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager values"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.values(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Convert the existing in memory `RelatedThing2` instances with:\n"
-            '`[{"attr1": relatedthing2.attr1, "attr2": relatedthing2.attr2, ...} for relatedthing2 in thing2.relatable.all()]`\n'
-            "Fetch the latest `RelatedThing2` from the database with:\n"
-            "`RelatedThing2.objects.filter(thing2=thing2.pk).values(...)`",
+            "Access to `thing3_set.values(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Convert the existing in memory `Thing3` instances with:\n"
+            '`[{"attr1": thing3.attr1, "attr2": thing3.attr2, ...} for thing3 in relatedthing3.thing3_set.all()]`\n'
+            "Fetch the latest `Thing3` from the database with:\n"
+            "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).values(...)`",
         ):
             (thing,) = related_thing.thing3_set.values("title")
 
@@ -797,11 +797,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             0
         ), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.values_list(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Convert the existing in memory `RelatedThing2` instances with:\n"
-            '`[(relatedthing2.attr1, "attr2": relatedthing2.attr2, ...) for relatedthing2 in thing2.relatable.all()]`\n'
-            "Fetch the latest `RelatedThing2` from the database with:\n"
-            "`RelatedThing2.objects.filter(thing2=thing2.pk).values_list(...)`",
+            "Access to `thing3_set.values_list(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Convert the existing in memory `Thing3` instances with:\n"
+            '`[(thing3.attr1, "attr2": thing3.attr2, ...) for thing3 in relatedthing3.thing3_set.all()]`\n'
+            "Fetch the latest `Thing3` from the database with:\n"
+            "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).values_list(...)`",
         ):
             (thing,) = related_thing.thing3_set.values_list("title")
 
@@ -814,11 +814,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager order_by"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.order_by(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Convert the existing in memory `RelatedThing2` instances with:\n"
-            "`sorted(thing2.relatable.all(), key=itertools.attrgetter(...))`\n"
-            "Fetch the latest `RelatedThing2` from the database with:\n"
-            "`RelatedThing2.objects.filter(thing2=thing2.pk).order_by(...)`",
+            "Access to `thing3_set.order_by(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Convert the existing in memory `Thing3` instances with:\n"
+            "`sorted(relatedthing3.thing3_set.all(), key=itertools.attrgetter(...))`\n"
+            "Fetch the latest `Thing3` from the database with:\n"
+            "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).order_by(...)`",
         ):
             (thing,) = related_thing.thing3_set.order_by("title")
 
@@ -831,8 +831,8 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager extra"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.extra(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Update your `prefetch_related` to use `prefetch_related(Prefetch('relatable', RelatedThing2.objects.extra(...)))",
+            "Access to `thing3_set.extra(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Update your `prefetch_related` to use `prefetch_related(Prefetch('thing3', Thing3.objects.extra(...)))",
         ):
             (thing,) = related_thing.thing3_set.extra()
 
@@ -847,8 +847,8 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             0
         ), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.select_related(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Update your `prefetch_related` to use `prefetch_related(Prefetch('relatable', RelatedThing2.objects.select_related(...)))",
+            "Access to `thing3_set.select_related(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Update your `prefetch_related` to use `prefetch_related(Prefetch('thing3', Thing3.objects.select_related(...)))",
         ):
             (thing,) = related_thing.thing3_set.select_related()
 
@@ -861,7 +861,7 @@ class ReverseManyToManyMethodsTestCase(TestCase):
 
         with self.subTest("Manager alias"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.alias(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`",
+            "Access to `thing3_set.alias(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`",
         ):
             (thing,) = related_thing.thing3_set.alias(title2=F("title"))
 
@@ -876,7 +876,7 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             0
         ), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
-            "Access to `relatable.prefetch_related(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
-            "Update your `prefetch_related` to use `prefetch_related('relatable', 'relatable__attr')`",
+            "Access to `thing3_set.prefetch_related(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`\n"
+            "Update your `prefetch_related` to use `prefetch_related('thing3', 'thing3__attr')`",
         ):
             (thing,) = related_thing.thing3_set.prefetch_related("thing")

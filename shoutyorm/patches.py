@@ -667,7 +667,7 @@ def new_manytomany_descriptor_get(
         model=related_model,
         remote_model=manager.model,
         attr_name=related_name,
-        related_name=related_name,
+        related_name=manager.prefetch_cache_name,
     )
 
     return manager
