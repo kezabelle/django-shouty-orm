@@ -516,7 +516,7 @@ def new_reverse_onetoone_descriptor_get(
         # If we encounter an escape hatch of `_shouty_<field>` = 2 it means
         # we want to allow 2 lazy attribute requests to the field.
         if instance._state.fields_cache[escape_hatch_key] is False:
-            exception = MissingRelationField(
+            exception = MissingReverseRelationField(
                 "Access to `{cls}.{attr}` was prevented.\n"
                 "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
                     attr=self.related.get_accessor_name(),
