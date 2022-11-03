@@ -155,7 +155,7 @@ def rebind_related_manager_via_descriptor(
             NoMoreFilteringAllowed(
                 "Access to `{attr}.earliest(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
                 "Fetch the earliest existing `{remote_cls}` in memory with:\n"
-                "`sorted({cls_var}.{attr}.all(), key=attrgetter(...))[0]`\n"
+                "`sorted({cls_var}.{attr}.all(), key=itertools.attrgetter(...))[0]`\n"
                 "Fetch the earliest `{remote_cls}` from the database with:\n"
                 "`{remote_cls}.objects.order_by(...).get({cls_var}={cls_var}.pk)`",
                 attr=attr_name,
@@ -171,7 +171,7 @@ def rebind_related_manager_via_descriptor(
             NoMoreFilteringAllowed(
                 "Access to `{attr}.latest(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
                 "Fetch the latest existing `{remote_cls}` in memory with:\n"
-                "`sorted({cls_var}.{attr}.all(), reverse=True, key=attrgetter(...))[0]`\n"
+                "`sorted({cls_var}.{attr}.all(), reverse=True, key=itertools.attrgetter(...))[0]`\n"
                 "Fetch the latest `{remote_cls}` from the database with:\n"
                 "`{remote_cls}.objects.order_by(...).get({cls_var}={cls_var}.pk)`",
                 attr=attr_name,
@@ -284,6 +284,73 @@ def rebind_related_manager_via_descriptor(
                 '`[({remote_class_var}.attr1, "attr2": {remote_class_var}.attr2, ...) for {remote_class_var} in {cls_var}.{attr}.all()]`\n'
                 "Fetch the latest `{remote_cls}` from the database with:\n"
                 "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).values_list(...)`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.order_by = exception_raising(
+            manager.order_by,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.order_by(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Convert the existing in memory `{remote_cls}` instances with:\n"
+                "`sorted({cls_var}.{attr}.all(), key=itertools.attrgetter(...))`\n"
+                "Fetch the latest `{remote_cls}` from the database with:\n"
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).order_by(...)`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.extra = exception_raising(
+            manager.extra,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.extra(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Update your `prefetch_related` to use `prefetch_related(Prefetch({x_related_name!r}, {remote_cls}.objects.extra(...)))`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.select_related = exception_raising(
+            manager.select_related,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.select_related(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Update your `prefetch_related` to use `prefetch_related(Prefetch({x_related_name!r}, {remote_cls}.objects.select_related(...)))`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.alias = exception_raising(
+            manager.alias,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.alias(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`",
+                attr=attr_name,
+                cls=model.__name__,
+                cls_var=model.__name__.lower(),
+                x_related_name=related_name,
+                remote_cls=remote_model.__name__,
+                remote_class_var=remote_model.__name__.lower(),
+            ),
+        )
+        manager.prefetch_related = exception_raising(
+            manager.alias,
+            NoMoreFilteringAllowed(
+                "Access to `{attr}.prefetch_related(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "Update your `prefetch_related` to use `prefetch_related({x_related_name!r}, '{x_related_name!s}__attr')`",
                 attr=attr_name,
                 cls=model.__name__,
                 cls_var=model.__name__.lower(),
@@ -786,7 +853,7 @@ def patch(invalid_locals: bool, invalid_relations: bool, invalid_reverse_relatio
             ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
             ReverseManyToOneDescriptor._shouty = True
 
-    QuerySet._filter_or_exclude = new_queryset_filter_or_exclude
-    QuerySet._clone = new_queryset_clone
-    QuerySet._shouty = True
+    # QuerySet._filter_or_exclude = new_queryset_filter_or_exclude
+    # QuerySet._clone = new_queryset_clone
+    # QuerySet._shouty = True
     return True

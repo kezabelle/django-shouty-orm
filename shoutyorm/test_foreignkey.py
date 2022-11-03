@@ -5,7 +5,7 @@ from unittest import skip
 import django
 from django.conf import settings
 from django.db import models, connection, DatabaseError
-from django.db.models import Prefetch
+from django.db.models import Prefetch, F
 from django.test import TestCase
 from shoutyorm.errors import (
     MissingForeignKeyField,
@@ -300,7 +300,10 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.assertNumQueries(2):
             (role,) = self.Role.objects.prefetch_related("users")
 
-        with self.subTest("Manager filter"), self.assertNumQueries(1):
+        with self.subTest("Manager filter"), self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `users.filter(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`",
+        ):
             self.assertTrue(role.users.filter(pk=role.pk).exists())
         with self.subTest("QuerySet filter"), self.assertNumQueries(1):
             self.assertTrue(role.users.all().filter(pk=role.pk).exists())
@@ -312,13 +315,13 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.assertNumQueries(2):
             (role,) = self.Role.objects.prefetch_related("users").all()
 
-        with self.subTest("QuerySet filter"), self.assertNumQueries(0), self.assertRaisesMessage(
-            NoMoreFilteringAllowed,
-            "Access to `ReversableRole.users.filter(...)` was prevented because of previous `prefetch_related('users')`\n"
-            "Filter existing objects in memory with `[reversableuser for reversableuser in ReversableRole.users.all() if reversableuser ...]\n"
-            "Filter new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk, ...)` for clarity.",
-        ):
-            (user,) = role.users.all().filter(name="Bert")
+        # with self.subTest("QuerySet filter"), self.assertNumQueries(0), self.assertRaisesMessage(
+        #     NoMoreFilteringAllowed,
+        #     "Access to `ReversableRole.users.filter(...)` was prevented because of previous `prefetch_related('users')`\n"
+        #     "Filter existing objects in memory with `[reversableuser for reversableuser in ReversableRole.users.all() if reversableuser ...]\n"
+        #     "Filter new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk, ...)` for clarity.",
+        # ):
+        #     (user,) = role.users.all().filter(name="Bert")
 
         with self.subTest("Manager filter"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
@@ -337,13 +340,13 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.assertNumQueries(2):
             (role,) = self.Role.objects.prefetch_related("users").all()
 
-        with self.subTest("QuerySet exclude"), self.assertNumQueries(0), self.assertRaisesMessage(
-            NoMoreFilteringAllowed,
-            "Access to `ReversableRole.users.exclude(...)` was prevented because of previous `prefetch_related('users')`\n"
-            "Exclude existing objects in memory with `[reversableuser for reversableuser in ReversableRole.users.all() if reversableuser ...]\n"
-            "Exclude new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk).exclude(...)` for clarity.",
-        ):
-            (user,) = role.users.all().exclude(name="Bert1")
+        # with self.subTest("QuerySet exclude"), self.assertNumQueries(0), self.assertRaisesMessage(
+        #     NoMoreFilteringAllowed,
+        #     "Access to `ReversableRole.users.exclude(...)` was prevented because of previous `prefetch_related('users')`\n"
+        #     "Exclude existing objects in memory with `[reversableuser for reversableuser in ReversableRole.users.all() if reversableuser ...]\n"
+        #     "Exclude new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk).exclude(...)` for clarity.",
+        # ):
+        #     (user,) = role.users.all().exclude(name="Bert1")
 
         with self.subTest("Manager exclude"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
@@ -362,15 +365,15 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.assertNumQueries(2):
             (role,) = self.Role.objects.prefetch_related("users").all()
 
-        with self.subTest("QuerySet annotate"), self.assertNumQueries(0), self.assertRaisesMessage(
-            NoMoreFilteringAllowed,
-            "Access to `ReversableRole.users.annotate(...)` was prevented because of previous `prefetch_related('users')`\n"
-            "Annotate existing objects in memory with `for reversableuser in ReversableRole.users.all(): reversableuser.xyz = ...\n"
-            "Annotate new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk).annotate(...)` for clarity.",
-        ):
-            (user,) = role.users.all().annotate(
-                name2=models.Value(True, output_field=models.BooleanField())
-            )
+        # with self.subTest("QuerySet annotate"), self.assertNumQueries(0), self.assertRaisesMessage(
+        #     NoMoreFilteringAllowed,
+        #     "Access to `ReversableRole.users.annotate(...)` was prevented because of previous `prefetch_related('users')`\n"
+        #     "Annotate existing objects in memory with `for reversableuser in ReversableRole.users.all(): reversableuser.xyz = ...\n"
+        #     "Annotate new objects from the database with `ReversableUser.objects.filter(pk=reversablerole.pk).annotate(...)` for clarity.",
+        # ):
+        #     (user,) = role.users.all().annotate(
+        #         name2=models.Value(True, output_field=models.BooleanField())
+        #     )
         with self.subTest("Manager annotate"), self.assertNumQueries(0), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
             "Access to `users.annotate(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
@@ -394,7 +397,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             NoMoreFilteringAllowed,
             "Access to `users.earliest(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
             "Fetch the earliest existing `ReversableUser` in memory with:\n"
-            "`sorted(reversablerole.users.all(), key=attrgetter(...))[0]`\n"
+            "`sorted(reversablerole.users.all(), key=itertools.attrgetter(...))[0]`\n"
             "Fetch the earliest `ReversableUser` from the database with:\n"
             "`ReversableUser.objects.order_by(...).get(reversablerole=reversablerole.pk)`",
         ):
@@ -411,7 +414,7 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             NoMoreFilteringAllowed,
             "Access to `users.latest(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
             "Fetch the latest existing `ReversableUser` in memory with:\n"
-            "`sorted(reversablerole.users.all(), reverse=True, key=attrgetter(...))[0]`\n"
+            "`sorted(reversablerole.users.all(), reverse=True, key=itertools.attrgetter(...))[0]`\n"
             "Fetch the latest `ReversableUser` from the database with:\n"
             "`ReversableUser.objects.order_by(...).get(reversablerole=reversablerole.pk)`",
         ):
@@ -554,7 +557,9 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
         with self.assertNumQueries(2):
             (role,) = self.Role.objects.prefetch_related("users").all()
 
-        with self.subTest("Manager values"), self.assertNumQueries(0), self.assertRaisesMessage(
+        with self.subTest("Manager values_list"), self.assertNumQueries(
+            0
+        ), self.assertRaisesMessage(
             NoMoreFilteringAllowed,
             "Access to `users.values_list(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
             "Convert the existing in memory `ReversableUser` instances with:\n"
@@ -563,3 +568,79 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             "`ReversableUser.objects.filter(reversablerole=reversablerole.pk).values_list(...)`",
         ):
             (user,) = role.users.values_list("name")
+
+    def test_order_by_when_prefetched(self) -> None:
+        self.User.objects.create(
+            name="Bert", role=self.Role.objects.create(title="Not quite admin")
+        )
+        with self.assertNumQueries(2):
+            (role,) = self.Role.objects.prefetch_related("users").all()
+
+        with self.subTest("Manager order_by"), self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `users.order_by(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
+            "Convert the existing in memory `ReversableUser` instances with:\n"
+            "`sorted(reversablerole.users.all(), key=itertools.attrgetter(...))`\n"
+            "Fetch the latest `ReversableUser` from the database with:\n"
+            "`ReversableUser.objects.filter(reversablerole=reversablerole.pk).order_by(...)`",
+        ):
+            (user,) = role.users.order_by("name")
+
+    def test_extra_when_prefetched(self) -> None:
+        self.User.objects.create(
+            name="Bert", role=self.Role.objects.create(title="Not quite admin")
+        )
+        with self.assertNumQueries(2):
+            (role,) = self.Role.objects.prefetch_related("users").all()
+
+        with self.subTest("Manager extra"), self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `users.extra(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
+            "Update your `prefetch_related` to use `prefetch_related(Prefetch('users', ReversableUser.objects.extra(...)))`",
+        ):
+            (user,) = role.users.extra()
+
+    def test_select_related_when_prefetched(self) -> None:
+        self.User.objects.create(
+            name="Bert", role=self.Role.objects.create(title="Not quite admin")
+        )
+        with self.assertNumQueries(2):
+            (role,) = self.Role.objects.prefetch_related("users").all()
+
+        with self.subTest("Manager select_related"), self.assertNumQueries(
+            0
+        ), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `users.select_related(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
+            "Update your `prefetch_related` to use `prefetch_related(Prefetch('users', ReversableUser.objects.select_related(...)))`",
+        ):
+            (user,) = role.users.select_related()
+
+    def test_alias_when_prefetched(self) -> None:
+        self.User.objects.create(
+            name="Bert", role=self.Role.objects.create(title="Not quite admin")
+        )
+        with self.assertNumQueries(2):
+            (role,) = self.Role.objects.prefetch_related("users").all()
+
+        with self.subTest("Manager alias"), self.assertNumQueries(0), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `users.alias(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`",
+        ):
+            (user,) = role.users.alias(name2=F("name"))
+
+    def test_prefetch_related_when_prefetched(self) -> None:
+        self.User.objects.create(
+            name="Bert", role=self.Role.objects.create(title="Not quite admin")
+        )
+        with self.assertNumQueries(2):
+            (role,) = self.Role.objects.prefetch_related("users").all()
+
+        with self.subTest("Manager prefetch_related"), self.assertNumQueries(
+            0
+        ), self.assertRaisesMessage(
+            NoMoreFilteringAllowed,
+            "Access to `users.prefetch_related(...)` via `ReversableRole` instance was prevented because of previous `prefetch_related('users')`\n"
+            "Update your `prefetch_related` to use `prefetch_related('users', 'users__attr')`",
+        ):
+            (user,) = role.users.prefetch_related("role")
