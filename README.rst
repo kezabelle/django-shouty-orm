@@ -98,7 +98,8 @@ Methods which are blocked when ``prefetch_related`` data exists.
 Methods which aren't yet blocked
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-???
+- ``RelatedManager.first``
+- ``RelatedManager.last``
 
 Methods which probably won't ever be blocked
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
