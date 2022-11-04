@@ -86,7 +86,8 @@ class OnlyDeferTestCase(TestCase):
             with self.assertRaisesMessage(
                 MissingLocalField,
                 "Access to `Item.modified` was prevented.\n"
-                "Add `modified` to `only('created', 'id', 'title')` or remove `modified` from `defer('modified', 'related_thing_id')` where `Item` objects are selected`",
+                "Add `modified` to `only('created', 'id', 'title')` or remove `modified` from `defer('modified', 'related_thing_id')` where `Item` objects are selected`\n"
+                "You can allow access to `modified` on this `Item` instance by using `item._shouty_allow_modified = True`",
             ):
                 item.modified
             # TODO: fix this to be MissingForeignKeyField preferrably
@@ -110,7 +111,8 @@ class OnlyDeferTestCase(TestCase):
             with self.assertRaisesMessage(
                 MissingLocalField,
                 "Access to `Item.modified` was prevented.\n"
-                "Add `modified` to `only('id', 'related_thing_id', 'title')` or remove `modified` from `defer('created', 'modified')` where `Item` objects are selected`",
+                "Add `modified` to `only('id', 'related_thing_id', 'title')` or remove `modified` from `defer('created', 'modified')` where `Item` objects are selected`\n"
+                "You can allow access to `modified` on this `Item` instance by using `item._shouty_allow_modified = True`",
             ):
                 item.modified
             # TODO: this returns the correct thing (weirdly!) but is inconsistent with only() above.
@@ -141,6 +143,70 @@ class OnlyDeferTestCase(TestCase):
             with self.assertRaisesMessage(
                 MissingLocalField,
                 "Access to `Item.modified` was prevented.\n"
-                "Add `modified` to `only('id', 'related_thing_id', 'title')` or remove `modified` from `defer('created', 'modified')` where `Item` objects are selected`",
+                "Add `modified` to `only('id', 'related_thing_id', 'title')` or remove `modified` from `defer('created', 'modified')` where `Item` objects are selected`\n"
+                "You can allow access to `modified` on this `Item` instance by using `item._shouty_allow_modified = True`",
             ):
                 item.modified
+
+
+class OnlyDeferEscapeHatchTestCase(TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        class Item2(models.Model):
+            title = models.CharField(max_length=100)
+            created = models.DateTimeField(auto_now_add=True)
+            modified = models.DateTimeField(auto_now=True)
+
+        try:
+            with connection.schema_editor() as editor:
+                editor.create_model(Item2)
+        except DatabaseError as exc:
+            raise cls.failureException("Unable to create the table (%s)" % exc)
+
+        cls.Item = Item2
+        super().setUpClass()
+
+    def test_normal_behaviour(self) -> None:
+        with self.assertNumQueries(1):
+            self.Item.objects.create(
+                title="test item",
+            )
+        with self.assertNumQueries(1):
+            (item,) = self.Item.objects.all()
+        with self.assertNumQueries(0):
+            item.pk
+            item.title
+            item.created
+            item.modified
+
+    def test_only(self):
+        """columns not selected via .only() will error"""
+
+        self.Item.objects.create(
+            title="test item",
+        )
+        with self.assertNumQueries(1):
+            (item,) = self.Item.objects.only("title", "created").all()
+        with self.assertNumQueries(0):
+            self.assertEqual(item.title, "test item")
+            item.pk
+            item.created
+        with self.assertNumQueries(1):
+            item._shoutyorm_allow_modified = True
+            item.modified
+
+    def test_defer(self):
+        """columns not selected via .defer() will error"""
+
+        self.Item.objects.create(
+            title="test item",
+        )
+        with self.assertNumQueries(1):
+            (item,) = self.Item.objects.defer("created", "modified").all()
+        with self.assertNumQueries(0):
+            self.assertEqual(item.title, "test item")
+            item.pk
+
+        with self.assertNumQueries(1):
+            item._shoutyorm_allow_modified = True
+            item.modified

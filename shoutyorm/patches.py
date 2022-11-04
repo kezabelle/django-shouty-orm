@@ -377,7 +377,12 @@ def new_deferredattribute_check_parent_chain(
     else:
         val = old_deferredattribute_check_parent_chain(self, instance)
         assert name is None, "Unexpected name value"
-    if val is None:
+    escape_hatch_key = f"_shoutyorm_allow_{self.field.attname}"
+    logger.debug("Checking for %s on %r instance", escape_hatch_key, instance)
+    if not hasattr(instance, escape_hatch_key):
+        setattr(instance, escape_hatch_key, False)
+
+    if val is None and getattr(instance, escape_hatch_key) is False:
         deferred_fields = instance.get_deferred_fields()
         selected_fields = {
             f.attname for f in instance._meta.concrete_fields if f.attname in instance.__dict__
@@ -387,16 +392,19 @@ def new_deferredattribute_check_parent_chain(
         if deferred_fields == {self.field.attname}:
             defer_msg = "remove the `defer({deferred!s})`"
             only_msg = "Remove the `only(...)`"
+        escape_hatch_msg = "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_lower}._shouty_allow_{attr} = True`"
         exception = MissingLocalField(
             (
                 "Access to `{cls}.{attr}` was prevented.\n"
                 + only_msg
                 + " or "
                 + defer_msg
-                + " where `{cls}` objects are selected`"
+                + " where `{cls}` objects are selected`\n"
+                + escape_hatch_msg
             ).format(
                 attr=self.field.attname,
                 cls=instance.__class__.__name__,
+                cls_lower=instance._meta.model_name,
                 selected=", ".join("'{}'".format(key) for key in sorted(selected_fields)),
                 deferred=", ".join("'{}'".format(key) for key in sorted(deferred_fields)),
             )
