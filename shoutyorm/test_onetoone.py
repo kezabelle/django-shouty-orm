@@ -326,3 +326,54 @@ class ReverseOneToOneDescriptorTestCase(TestCase):
         # Not cached, set via <field>_id, needs fetching
         with self.assertNumQueries(1):
             self.assertEqual(side_b2.woo_side_a.title, "Side A!")
+
+
+class OneToOneEscapeHatchDescriptorTestCase(TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        class ModelB(models.Model):
+            title = models.CharField(max_length=100)
+
+        class ModelA(models.Model):
+            title = models.CharField(max_length=100)
+            b = models.OneToOneField(
+                ModelB,
+                on_delete=models.CASCADE,
+            )
+
+        try:
+            with connection.schema_editor() as editor:
+                editor.create_model(ModelB)
+                editor.create_model(ModelA)
+        except DatabaseError as exc:
+            raise cls.failureException("Unable to create the table (%s)" % exc)
+
+        cls.ModelB = ModelB
+        cls.ModelA = ModelA
+        super().setUpClass()
+
+    def test_forward_one_to_one_not_selected(self):
+        """myobject.myrelation is a OneToOneField which has not been fetched"""
+        self.ModelA.objects.create(title="Side A!", b=self.ModelB.objects.create(title="Side B!"))
+        with self.assertNumQueries(1):
+            (side_a,) = self.ModelA.objects.all()
+        with self.assertNumQueries(0):
+            self.assertEqual(side_a.title, "Side A!")
+            side_a.pk
+            side_a.b_id
+        with self.assertNumQueries(1):
+            side_a._shoutyorm_allow_b = True
+            side_a.b
+
+    def test_reverse_one_to_one_not_selected(self):
+        """myobject.myrelation is a OneToOneField which has not been fetched"""
+        self.ModelA.objects.create(title="Side A!", b=self.ModelB.objects.create(title="Side B!"))
+        with self.assertNumQueries(1):
+            (side_b,) = self.ModelB.objects.all()
+        with self.assertNumQueries(0):
+            self.assertEqual(side_b.title, "Side B!")
+            side_b.pk
+            side_b.title
+        with self.assertNumQueries(1):
+            side_b._shoutyorm_allow_modela = True
+            side_b.modela

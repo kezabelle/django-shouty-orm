@@ -538,9 +538,12 @@ def new_reverse_onetoone_descriptor_get(
         if getattr(instance, escape_hatch_key) is False:
             exception = MissingReverseRelationField(
                 "Access to `{cls}.{attr}` was prevented.\n"
-                "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
+                "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_lower}.{escape_hatch} = True".format(
                     attr=self.related.get_accessor_name(),
                     cls=instance.__class__.__name__,
+                    cls_lower=instance._meta.model_name,
+                    escape_hatch=escape_hatch_key,
                     x_related_name=self.related.get_accessor_name() or "...",
                     remote_cls=self.related.remote_field.model.__name__,
                 )
@@ -671,9 +674,12 @@ def new_foreignkey_descriptor_get_object(
         exception = MissingRelationField(
             "Access to `{cls}.{attr}` was prevented.\n"
             "If you only need access to the column identifier, use `{cls}.{field_column}` instead.\n"
-            "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
+            "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.\n"
+            "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_lower}.{escape_hatch} = True`".format(
                 attr=self.field.get_cache_name(),
                 cls=instance.__class__.__name__,
+                cls_lower=instance._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 field_column=self.field.get_attname(),
                 # x_related_name=other_side.get_accessor_name() or "...",
                 x_related_name=self.field.get_cache_name() or "...",
