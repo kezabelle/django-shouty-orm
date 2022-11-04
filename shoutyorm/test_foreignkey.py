@@ -644,3 +644,66 @@ class ReverseForeignKeyDescriptorTestCase(TestCase):
             "Update your `prefetch_related` to use `prefetch_related('users', 'users__attr')`",
         ):
             (user,) = role.users.prefetch_related("role")
+
+
+class ForeignKeyEscapeHatchDescriptorTestCase(TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        class ModelCFK(models.Model):
+            name = models.CharField(max_length=100)
+
+        class ModelBFK(models.Model):
+            name = models.CharField(max_length=100)
+            c = models.ForeignKey(ModelCFK, on_delete=models.SET_NULL, null=True)
+
+        class ModelAFK(models.Model):
+            name = models.CharField(max_length=100)
+            b = models.ForeignKey(
+                ModelBFK,
+                on_delete=models.CASCADE,
+                db_column="role_reference",
+                related_name="back_to_a",
+                related_query_name="bbb",
+                null=True,
+            )
+
+        try:
+            with connection.schema_editor() as editor:
+                editor.create_model(ModelCFK)
+                editor.create_model(ModelBFK)
+                editor.create_model(ModelAFK)
+        except DatabaseError as exc:
+            raise cls.failureException("Unable to create the table (%s)" % exc)
+
+        cls.ModelA = ModelAFK
+        cls.ModelB = ModelBFK
+        cls.ModelC = ModelCFK
+        super().setUpClass()
+
+    def test_foreignkey_not_selected(self):
+        """myobject.myrelation is a ForeignKey which has not been fetched"""
+
+        self.ModelA.objects.create(
+            name="Bert", b=self.ModelB.objects.create(name="Not quite admin")
+        )
+        with self.assertNumQueries(1):
+            (model_a,) = self.ModelA.objects.all()
+        with self.assertNumQueries(0):
+            self.assertEqual(model_a.name, "Bert")
+            model_a.pk
+            model_a.b_id
+        with self.assertNumQueries(1):
+            model_a._shoutyorm_allow_b = True
+            model_a.b
+
+    def test_accessing_other_side_of_foreignkey_when_not_prefetched(self) -> None:
+        self.ModelA.objects.create(
+            name="Bert", b=self.ModelB.objects.create(name="Not quite admin")
+        )
+        with self.assertNumQueries(1):
+            (model_b,) = self.ModelB.objects.all()
+        with self.assertNumQueries(0):
+            self.assertEqual(model_b.name, "Not quite admin")
+            model_b.pk
+        with self.assertNumQueries(0):
+            (model_a,) = model_b.back_to_a.all()
