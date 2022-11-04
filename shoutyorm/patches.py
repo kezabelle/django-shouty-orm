@@ -789,58 +789,49 @@ def new_model_save_base(
     return result
 
 
-def patch(invalid_locals: bool, invalid_relations: bool, invalid_reverse_relations: bool):
+def patch():
     """
-    if invalid_locals is True, accessing fields which have been
-    deferred via `.only()` and `.defer()` at the QuerySet level will error loudly.
+    Apply monkeypatches to various Django methods.
 
-    if invalid_relations is True, accessing OneToOnes which have not
-    been `.select_related()` at the QuerySet level will error loudly.
-
-    if invalid_reverse_relations is True, accessing foreignkeys from the "other"
-    side (that is, via the reverse relation manager) which have not
-    been `.prefetch_related()` at the QuerySet level will error loudly.
-
-    if invalid_relations is turned on, accessing local foreignkeys
-    which have not been `prefetch_related()` or `select_related()` at the queryset
-    level will error loudly.
+    Patches are applied to cover:
+    a) defer() and only() usage
+    b) OneToOneFields (and their reverse relations)
+    c) ForeignKeys (and their reverse relations)
+    d) ManyToManyFields (from both ends)
+    e) Model saving (so that after *creation* things don't become problematic)
     """
-    if invalid_locals is True:
-        patched_deferredattr = getattr(DeferredAttribute, "_shouty", False)
-        if patched_deferredattr is False:
-            DeferredAttribute._check_parent_chain = new_deferredattribute_check_parent_chain
-            DeferredAttribute._shouty = True
+    patched_deferredattr = getattr(DeferredAttribute, "_shouty", False)
+    if patched_deferredattr is False:
+        DeferredAttribute._check_parent_chain = new_deferredattribute_check_parent_chain
+        DeferredAttribute._shouty = True
 
-    if invalid_relations is True:
+    # This patches `mymodel.myrelation` where `myrelation` is either
+    # myrelation = ForeignKey(...)
+    # myrelation = OneToOneField(...)
+    patched_manytoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
+    if patched_manytoone is False:
+        ForwardManyToOneDescriptor.get_object = new_foreignkey_descriptor_get_object
+        ForwardManyToOneDescriptor._shouty = True
 
-        # This patches `mymodel.myrelation` where `myrelation` is either
-        # myrelation = ForeignKey(...)
-        # myrelation = OneToOneField(...)
-        patched_manytoone = getattr(ForwardManyToOneDescriptor, "_shouty", False)
-        if patched_manytoone is False:
-            ForwardManyToOneDescriptor.get_object = new_foreignkey_descriptor_get_object
-            ForwardManyToOneDescriptor._shouty = True
+    patched_manytomany = getattr(ManyToManyDescriptor, "_shouty", False)
+    if patched_manytomany is False:
+        ManyToManyDescriptor.__get__ = new_manytomany_descriptor_get
+        ManyToManyDescriptor._shouty = True
 
-        patched_manytomany = getattr(ManyToManyDescriptor, "_shouty", False)
-        if patched_manytomany is False:
-            ManyToManyDescriptor.__get__ = new_manytomany_descriptor_get
-            ManyToManyDescriptor._shouty = True
+    patched_save_base = getattr(Model, "_shouty", False)
+    if patched_save_base is False:
+        Model.save_base = new_model_save_base
+        Model._shouty = True
 
-        patched_save_base = getattr(Model, "_shouty", False)
-        if patched_save_base is False:
-            Model.save_base = new_model_save_base
-            Model._shouty = True
+    patched_reverse_onetone = getattr(ReverseOneToOneDescriptor, "_shouty", False)
+    if patched_reverse_onetone is False:
+        ReverseOneToOneDescriptor.__get__ = new_reverse_onetoone_descriptor_get
+        ReverseOneToOneDescriptor._shouty = True
 
-    if invalid_reverse_relations is True:
-        patched_reverse_onetone = getattr(ReverseOneToOneDescriptor, "_shouty", False)
-        if patched_reverse_onetone is False:
-            ReverseOneToOneDescriptor.__get__ = new_reverse_onetoone_descriptor_get
-            ReverseOneToOneDescriptor._shouty = True
+    patched_reverse_manytoone = getattr(ReverseManyToOneDescriptor, "_shouty", False)
 
-        patched_reverse_manytoone = getattr(ReverseManyToOneDescriptor, "_shouty", False)
-
-        if patched_reverse_manytoone is False:
-            ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
-            ReverseManyToOneDescriptor._shouty = True
+    if patched_reverse_manytoone is False:
+        ReverseManyToOneDescriptor.__get__ = new_reverse_foreignkey_descriptor_get
+        ReverseManyToOneDescriptor._shouty = True
 
     return True

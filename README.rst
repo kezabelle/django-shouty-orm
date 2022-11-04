@@ -133,33 +133,30 @@ Dependencies
 ^^^^^^^^^^^^
 
 - Django 2.2+ (obviously)
-- `wrapt`_ 1.11+ (for proxying managers/querysets transparently)
-
-
-Optional configuration
-^^^^^^^^^^^^^^^^^^^^^^
-
-
-- ``settings.SHOUTY_LOCAL_FIELDS`` may be ``True|False``
-
-  Accessing fields which have been deferred via ``.only()`` and ``.defer()`` at the
-  QuerySet level will error loudly.
-- ``settings.SHOUTY_RELATION_FIELDS`` may be ``True|False``
-
-  Accessing OneToOnes which have not been ``.select_related()`` at the QuerySet
-  level will error loudly.
-  Accessing local foreignkeys which have not been ``prefetch_related()`` or
-  ``select_related()`` at the queryset level will error loudly.
-- ``settings.SHOUTY_RELATION_REVERSE_FIELDS`` may be ``True|False``
-
-  Accessing foreignkeys from the "other" side (that is, via the reverse relation
-  manager) which have not been ``.prefetch_related()`` at the QuerySet level will error loudly.
 
 Tests
 -----
 
-Just run ``python3 -m shoutyorm`` and hope for the best. I usually do.
+Assuming you have ``shoutyorm`` in your ``INSTALLED_APPS``, you can run the tests against your
+project's version of Django to verify compatibility via::
 
+    python3 manage.py test -v2 shoutyorm
+
+If you're using a git-checkout, from the root of the repository, you can use::
+
+    python3 setup.py test
+
+You can also use::
+
+    python3 -m unittest
+
+And also::
+
+    python3 -m shoutyorm
+
+To run a specific test (to whatever granularity you need), you can use::
+
+    python3 -m unittest shoutyorm.test_manytomany
 
 Alternatives
 ------------
