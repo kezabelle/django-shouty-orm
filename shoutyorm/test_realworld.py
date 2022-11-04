@@ -65,3 +65,21 @@ class RealworldCreationTestCase(TestCase):
         c = self.C.objects.select_related("t", "t__b").get(pk=existing_c.pk)
         with self.assertNumQueries(0):
             c.t.b
+
+    def test_realworld2(self):
+        """
+        This is a simplified example from a real world project where an exception
+        has been raised, and how it needs to be handled. It's essentially
+        (inexplicably?) a get_or_create.
+        """
+        existing_b = self.B.objects.create(title="B01")
+        existing_t = self.T.objects.create(title="T01", b_id=existing_b.pk)
+
+        t = self.T.objects.get(pk=existing_t.pk)
+        try:
+            c = self.C.objects.get()
+        except self.C.DoesNotExist:
+            c = self.C.objects.create(title="C01", t=existing_t)
+
+        with self.assertNumQueries(1):
+            c.t.b
