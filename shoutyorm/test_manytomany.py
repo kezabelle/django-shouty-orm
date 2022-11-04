@@ -894,3 +894,79 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "Update your `prefetch_related` to use `prefetch_related('thing3', 'thing3__attr')`",
         ):
             (thing,) = related_thing.thing3_set.prefetch_related("thing")
+
+
+class ManyToManyEscapeHatchTestCase(TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        class ModelDM2M(models.Model):
+            title = models.CharField(max_length=100)
+
+        class ModelCM2M(models.Model):
+            title = models.CharField(max_length=100)
+            d_objects = models.ManyToManyField(ModelDM2M)
+
+        class ModelBM2M(models.Model):
+            title = models.CharField(max_length=100)
+
+        class ModelAM2M(models.Model):
+            title = models.CharField(max_length=100)
+            b_objects = models.ManyToManyField(ModelBM2M)
+            c_objects = models.ManyToManyField(ModelCM2M)
+
+        try:
+            with connection.schema_editor() as editor:
+                editor.create_model(ModelDM2M)
+                editor.create_model(ModelCM2M)
+                editor.create_model(ModelBM2M)
+                editor.create_model(ModelAM2M)
+        except DatabaseError as exc:
+            raise cls.failureException("Unable to create the table (%s)" % exc)
+
+        cls.ModelA = ModelAM2M
+        cls.ModelB = ModelBM2M
+        cls.ModelC = ModelCM2M
+        cls.ModelD = ModelDM2M
+        super().setUpClass()
+
+    def test_multiple(self):
+        a = self.ModelA.objects.create(title="A")
+        b = self.ModelB.objects.create(title="B")
+        c = self.ModelC.objects.create(title="C")
+        d = self.ModelD.objects.create(title="D")
+
+        a.b_objects.add(b)
+        a.c_objects.add(c)
+        c.d_objects.add(d)
+
+        with self.assertNumQueries(3):
+            a._shoutyorm_allow_b_objects = True
+            (b_obj,) = a.b_objects.all()
+            a._shoutyorm_allow_c_objects = True
+            (c_obj,) = a.c_objects.all()
+            c_obj._shoutyorm_allow_d_objects = True
+            (d_obj,) = c_obj.d_objects.all()
+
+        with self.assertNumQueries(4):
+            (a,) = self.ModelA.objects.all()
+            a._shoutyorm_allow_b_objects = True
+            (b_obj,) = a.b_objects.all()
+            a._shoutyorm_allow_c_objects = True
+            (c_obj,) = a.c_objects.all()
+            c_obj._shoutyorm_allow_d_objects = True
+            (d_obj,) = c_obj.d_objects.all()
+
+        with self.assertNumQueries(4):
+            (a,) = self.ModelA.objects.prefetch_related("b_objects", "c_objects").all()
+            (b_obj,) = a.b_objects.all()
+            (c_obj,) = a.c_objects.all()
+            c_obj._shoutyorm_allow_d_objects = True
+            (d_obj,) = c_obj.d_objects.all()
+
+        with self.assertNumQueries(4):
+            (a,) = self.ModelA.objects.prefetch_related(
+                "b_objects", "c_objects", "c_objects__d_objects"
+            ).all()
+            (b_obj,) = a.b_objects.all()
+            (c_obj,) = a.c_objects.all()
+            (d_obj,) = c_obj.d_objects.all()

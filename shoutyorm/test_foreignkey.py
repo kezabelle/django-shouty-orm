@@ -713,11 +713,54 @@ class ForeignKeyEscapeHatchDescriptorTestCase(TestCase):
         self.ModelA.objects.create(
             name="Bert", b=self.ModelB.objects.create(name="Not quite admin")
         )
+        # From the reverse end
         with self.assertNumQueries(2):
             (model_b,) = self.ModelB.objects.prefetch_related("back_to_a").all()
         with self.assertNumQueries(0):
             self.assertEqual(model_b.name, "Not quite admin")
             model_b.pk
+
         with self.assertNumQueries(1):
             model_b._shoutyorm_allow_back_to_a = True
             model_b.back_to_a.filter(pk=model_b.pk).exists()
+
+        # From the forward end, using a 2nd query.
+        with self.assertNumQueries(2):
+            (model_a,) = self.ModelA.objects.prefetch_related("b").all()
+
+        with self.assertNumQueries(0):
+            self.assertEqual(model_a.name, "Bert")
+            model_a.pk
+            model_a.b
+
+        # From the forward end, using a JOIN
+        with self.assertNumQueries(1):
+            (model_a,) = self.ModelA.objects.select_related("b").all()
+
+        with self.assertNumQueries(0):
+            self.assertEqual(model_a.name, "Bert")
+            model_a.pk
+            model_a.b
+
+    def test_nested_relations_unwinding(self):
+        self.ModelA.objects.create(
+            name="Bert",
+            b=self.ModelB.objects.create(
+                name="Not quite admin", c=self.ModelC.objects.create(name="C!")
+            ),
+        )
+        # From the forwards end
+        with self.assertNumQueries(3):
+            (model_a,) = self.ModelA.objects.all()
+            model_a._shoutyorm_allow_b = True
+            model_a.b
+            model_a.b._shoutyorm_allow_c = True
+            model_a.b.c
+
+        # From the middle
+        with self.assertNumQueries(3):
+            (model_b,) = self.ModelB.objects.all()
+            model_b._shoutyorm_allow_back_to_a = True
+            (model_a,) = model_b.back_to_a.all()
+            model_b._shoutyorm_allow_c = True
+            model_b.c
