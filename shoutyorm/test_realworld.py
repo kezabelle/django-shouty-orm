@@ -2,6 +2,7 @@ import django
 from django.conf import settings
 from django.db import models, connection, DatabaseError
 from django.test import TestCase
+from shoutyorm import MissingRelationField
 
 if not settings.configured:
     settings.configure(
@@ -27,54 +28,40 @@ if not settings.configured:
 class RealworldCreationTestCase(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        class Rectangle(models.Model):
+        class B(models.Model):
             title = models.CharField(max_length=100)
 
-        class Circle(models.Model):
+        class T(models.Model):
             title = models.CharField(max_length=100)
-            rect = models.OneToOneField(Rectangle, on_delete=models.CASCADE)
+            b = models.OneToOneField(B, on_delete=models.CASCADE)
 
-        class Box(models.Model):
+        class C(models.Model):
             title = models.CharField(max_length=100)
-            related = models.ForeignKey(Rectangle, on_delete=models.CASCADE)
+            t = models.ForeignKey(T, on_delete=models.CASCADE)
 
         try:
             with connection.schema_editor() as editor:
-                editor.create_model(Rectangle)
-                editor.create_model(Circle)
-                editor.create_model(Box)
+                editor.create_model(B)
+                editor.create_model(T)
+                editor.create_model(C)
         except DatabaseError as exc:
             raise cls.failureException("Unable to create the table (%s)" % exc)
 
-        cls.Box = Box
-        cls.Rectangle = Rectangle
-        cls.Circle = Circle
+        cls.B = B
+        cls.T = T
+        cls.C = C
         super().setUpClass()
 
-    def test_creation_of_item(self):
-        existing_rectangle = self.Rectangle.objects.create(title="existing rectangle")
-        existing_circle = self.Circle.objects.create(
-            title="existing circle", rect=existing_rectangle
-        )
-        with self.subTest("plain create()"), self.assertNumQueries(1):
-            new_box = self.Box.objects.create(title="new box", related=existing_rectangle)
+    def test_realworld1(self):
+        """
+        This is a simplified example from a real world project where an exception
+        has been raised, and how it needs to be handled.
+        """
+        existing_b = self.B.objects.create(title="B01")
+        existing_t = self.T.objects.create(title="T01", b_id=existing_b.pk)
+        existing_c = self.C.objects.create(title="C01", t_id=existing_t.pk)
 
-        with self.subTest("get_or_create() with select_related()"), self.assertNumQueries(1):
-            new_box2, created = self.Box.objects.select_related(
-                "related", "related__circle"
-            ).get_or_create(title="new box", defaults={"related": existing_rectangle})
-            self.assertFalse(created)
-            new_box2.related.circle
-
-        with self.subTest("get_or_create() without select_related()"), self.assertNumQueries(4):
-            new_box3, created = self.Box.objects.get_or_create(
-                title="new box3", defaults={"related": existing_rectangle}
-            )
-            self.assertTrue(created)
-            new_box3.related.circle
-
-        with self.subTest("plain create() with select_related()"), self.assertNumQueries(1):
-            new_box4 = self.Box.objects.select_related("related", "related__circle").create(
-                title="new box", related=existing_rectangle
-            )
-            new_box4.related.circle
+        t = self.T.objects.get(pk=existing_t.pk)
+        c = self.C.objects.get(pk=existing_c.pk)
+        with self.assertNumQueries(0), self.assertRaises(MissingRelationField):
+            c.t.b
