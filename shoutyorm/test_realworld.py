@@ -62,6 +62,6 @@ class RealworldCreationTestCase(TestCase):
         existing_c = self.C.objects.create(title="C01", t_id=existing_t.pk)
 
         t = self.T.objects.get(pk=existing_t.pk)
-        c = self.C.objects.get(pk=existing_c.pk)
-        with self.assertNumQueries(0), self.assertRaises(MissingRelationField):
+        c = self.C.objects.select_related("t", "t__b").get(pk=existing_c.pk)
+        with self.assertNumQueries(0):
             c.t.b
