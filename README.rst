@@ -111,6 +111,7 @@ Methods which probably won't ever be blocked
 - ``RelatedManager.difference``
 - ``RelatedManager.union``
 
+
 Setup
 -----
 
@@ -118,6 +119,15 @@ Add ``shoutyorm`` or ``shoutyorm.Shout`` to your ``settings.INSTALLED_APPS``
 
 I'd certainly suggest that you should only enable it when ``DEBUG`` is ``True`` or
 during your test suite.
+
+Escape hatches
+--------------
+
+In some scenarios, you may wish to allow a relationship to be traversed anyway, perhaps
+after using `Model.objects.create` and fetching related data, for such scenarios
+there's a complete hack available::
+
+
 
 Dependencies
 ^^^^^^^^^^^^

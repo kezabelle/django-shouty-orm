@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from functools import wraps
 
 try:
@@ -27,6 +28,9 @@ from shoutyorm.errors import (
 
 # Hide the patch stacks from unittest output?
 __unittest = True
+
+
+logger = logging.getLogger(__name__)
 
 
 def exception_raising(func: Callable, exception: ShoutyAttributeError):
@@ -496,7 +500,11 @@ def new_reverse_onetoone_descriptor_get(
     except KeyError:
         # Start to track how much has been lazily acquired. By default they should
         # all be False.
-        escape_hatch_key = "allow_lazy:{}".format(self.related.get_accessor_name())
+        escape_hatch_key = f"_shoutyorm_allow_{self.related.get_accessor_name()}"
+        logger.debug("Checking for %s on %r instance", escape_hatch_key, instance)
+        if not hasattr(instance, escape_hatch_key):
+            setattr(instance, escape_hatch_key, False)
+
         # This ties in with `new_model_save_base`.
         # If we just created an instance via MyModel.objects.create() or MyModel(...).save()
         # we (by necessity) have to allow fetches for related data, at least until the next
@@ -510,12 +518,16 @@ def new_reverse_onetoone_descriptor_get(
         #
         # This additionally allows a query if you have the remote side of the onetoone,
         # create the 'other' side afterwards, and then try and access the 'other' side.
-        just_created = getattr(instance._state, "_shouty_just_added", False)
-        instance._state.fields_cache[escape_hatch_key] = just_created
+        just_created = getattr(instance, "_shoutyorm_just_added", False)
+        if just_created:
+            logger.debug(
+                "Setting %s on %r instance because it was just created", escape_hatch_key, instance
+            )
+            setattr(instance, escape_hatch_key, True)
 
         # If we encounter an escape hatch of `_shouty_<field>` = 2 it means
         # we want to allow 2 lazy attribute requests to the field.
-        if instance._state.fields_cache[escape_hatch_key] is False:
+        if getattr(instance, escape_hatch_key) is False:
             exception = MissingReverseRelationField(
                 "Access to `{cls}.{attr}` was prevented.\n"
                 "To fetch the `{remote_cls}` object, add `prefetch_related({x_related_name!r})` or `select_related({x_related_name!r})` to the query where `{cls}` objects are selected.".format(
@@ -529,7 +541,13 @@ def new_reverse_onetoone_descriptor_get(
             exception.__cause__ = None
             raise exception
         # We didn't raise, so lets fetch and disable it subsequently.
-        instance._state.fields_cache[escape_hatch_key] = False
+        if just_created:
+            logger.debug(
+                "Resetting %s on %r instance because it was just created",
+                escape_hatch_key,
+                instance,
+            )
+            setattr(instance, escape_hatch_key, False)
     return old_reverse_onetoone_descriptor_get(self, instance, cls)
 
 
@@ -619,9 +637,10 @@ def new_foreignkey_descriptor_get_object(
 
     # Start tro track how much has been lazily acquired. By default they should
     # all be zero.
-    escape_hatch_key = "allow_lazy:{}".format(self.field.get_cache_name())
-    if escape_hatch_key not in instance._state.fields_cache:
-        instance._state.fields_cache[escape_hatch_key] = False
+    escape_hatch_key = f"_shoutyorm_allow_{self.field.get_cache_name()}"
+    logger.debug("Checking for %s on %r instance", escape_hatch_key, instance)
+    if not hasattr(instance, escape_hatch_key):
+        setattr(instance, escape_hatch_key, False)
 
     # This ties in with `new_model_save_base`.
     # If we just created an instance via MyModel.objects.create() or MyModel(...).save()
@@ -633,10 +652,14 @@ def new_foreignkey_descriptor_get_object(
     # Realistically, preventing the query that would follow doesn't achieve
     # anything in the <field>_id scenario anyway, because you'd just be shifting
     # to getting the object ahead of time. So it'd be +-0 queries changed in total.
-    just_created = getattr(instance._state, "_shouty_just_added", False)
-    instance._state.fields_cache[escape_hatch_key] = just_created
+    just_created = getattr(instance, "_shoutyorm_just_added", False)
+    if just_created:
+        logger.debug(
+            "Setting %s on %r instance because it was just created", escape_hatch_key, instance
+        )
+        setattr(instance, escape_hatch_key, True)
 
-    if instance._state.fields_cache[escape_hatch_key] is False:
+    if getattr(instance, escape_hatch_key) is False:
         exception = MissingRelationField(
             "Access to `{cls}.{attr}` was prevented.\n"
             "If you only need access to the column identifier, use `{cls}.{field_column}` instead.\n"
@@ -654,7 +677,11 @@ def new_foreignkey_descriptor_get_object(
         raise exception
     # OK we're allowing +1 lazy access, to account for <field>_id
     # Reduce our expected allowance again.
-    instance._state.fields_cache[escape_hatch_key] = False
+    if just_created:
+        logger.debug(
+            "Resetting %s on %r instance because it was just created", escape_hatch_key, instance
+        )
+        setattr(instance, escape_hatch_key, False)
     related_instance = old_foreignkey_descriptor_get_object(self, instance)
     return related_instance
 
@@ -697,7 +724,7 @@ def new_model_save_base(
     added = self._state.adding is False
     # On the second save (after the first for creation), this should fall back
     # to False, at which point further related attribute access may be prevented again.
-    self._state._shouty_just_added = adding is True and added is True
+    self._shoutyorm_just_added = adding is True and added is True
     return result
 
 
