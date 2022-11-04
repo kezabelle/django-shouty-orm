@@ -324,6 +324,9 @@ class ManyToManyMethodsTestCase(TestCase):
         ):
             (relatable_thing,) = thing.relatable.filter(title="Bert")
 
+        with self.subTest("QuerySet filter"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().filter(title="relatable")
+
     def test_exclude_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -340,6 +343,9 @@ class ManyToManyMethodsTestCase(TestCase):
             "`RelatedThing2.objects.filter(thing2=thing2.pk).exclude(...)`",
         ):
             (relatable_thing,) = thing.relatable.exclude(title="Bert")
+
+        with self.subTest("QuerySet exclude"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().exclude(title="Bert")
 
     def test_annotate_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -360,6 +366,11 @@ class ManyToManyMethodsTestCase(TestCase):
                 title2=models.Value(True, output_field=models.BooleanField())
             )
 
+        with self.subTest("QuerySet annotate"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().annotate(
+                title2=models.Value(True, output_field=models.BooleanField())
+            )
+
     def test_earliest_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -375,7 +386,10 @@ class ManyToManyMethodsTestCase(TestCase):
             "Fetch the earliest `RelatedThing2` from the database with:\n"
             "`RelatedThing2.objects.order_by(...).get(thing2=thing2.pk)`",
         ):
-            (relatable_thing,) = thing.relatable.earliest("title")
+            relatable_thing = thing.relatable.earliest("title")
+
+        with self.subTest("QuerySet earliest"), self.assertNumQueries(1):
+            relatable_thing = thing.relatable.all().earliest("title")
 
     def test_latest_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -392,7 +406,10 @@ class ManyToManyMethodsTestCase(TestCase):
             "Fetch the latest `RelatedThing2` from the database with:\n"
             "`RelatedThing2.objects.order_by(...).get(thing2=thing2.pk)`",
         ):
-            (relatable_thing,) = thing.relatable.latest("title")
+            relatable_thing = thing.relatable.latest("title")
+
+        with self.subTest("QuerySet latest"), self.assertNumQueries(1):
+            relatable_thing = thing.relatable.all().latest("title")
 
     @skip("TODO: Not implemented")
     def test_first_when_prefetched(self) -> None:
@@ -417,7 +434,10 @@ class ManyToManyMethodsTestCase(TestCase):
             "Fetch the latest `RelatedThing2` from the database with:\n"
             "`RelatedThing2.objects.filter(thing2=thing2.pk).in_bulk()`",
         ):
-            (relatable_thing,) = thing.relatable.in_bulk()
+            relatable_things = thing.relatable.in_bulk()
+
+        with self.subTest("QuerySet in_bulk"), self.assertNumQueries(1):
+            relatable_things = thing.relatable.all().in_bulk()
 
     def test_defer_only_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -433,6 +453,9 @@ class ManyToManyMethodsTestCase(TestCase):
         ):
             (relatable_thing,) = thing.relatable.defer("title")
 
+        with self.subTest("QuerySet defer"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().defer("title")
+
         # This exception will suppress `MissingLocalField`
         # Access to `Model.attr_id` was prevented.\n"
         # Remove the `only(...)` or remove the `defer(...)` where `Model` objects are selected
@@ -442,6 +465,9 @@ class ManyToManyMethodsTestCase(TestCase):
             "You already have `RelatedThing2` instances in-memory.",
         ):
             (relatable_thing,) = thing.relatable.only("title")
+
+        with self.subTest("QuerySet only"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().only("title")
 
     def test_reverse_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -460,6 +486,9 @@ class ManyToManyMethodsTestCase(TestCase):
         ):
             (relatable_thing,) = thing.relatable.reverse()
 
+        with self.subTest("QuerySet reversed"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().reverse()
+
     def test_distinct_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -472,6 +501,9 @@ class ManyToManyMethodsTestCase(TestCase):
             "Access to `relatable.distinct(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`",
         ):
             (relatable_thing,) = thing.relatable.distinct()
+
+        with self.subTest("QuerySet distinct"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().distinct()
 
     def test_values_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -489,6 +521,9 @@ class ManyToManyMethodsTestCase(TestCase):
             "`RelatedThing2.objects.filter(thing2=thing2.pk).values(...)`",
         ):
             (relatable_thing,) = thing.relatable.values("title")
+
+        with self.subTest("QuerySet values"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().values("title")
 
     def test_values_list_list_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -509,6 +544,9 @@ class ManyToManyMethodsTestCase(TestCase):
         ):
             (relatable_thing,) = thing.relatable.values_list("title")
 
+        with self.subTest("QuerySet values_list"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().values_list("title")
+
     def test_order_by_list_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -526,6 +564,9 @@ class ManyToManyMethodsTestCase(TestCase):
         ):
             (relatable_thing,) = thing.relatable.order_by("title")
 
+        with self.subTest("QuerySet order_by"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().order_by("title")
+
     def test_extra_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -539,6 +580,9 @@ class ManyToManyMethodsTestCase(TestCase):
             "Update your `prefetch_related` to use `prefetch_related(Prefetch('relatable', RelatedThing2.objects.extra(...)))",
         ):
             (relatable_thing,) = thing.relatable.extra()
+
+        with self.subTest("QuerySet extra"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().extra()
 
     def test_select_related_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -556,6 +600,9 @@ class ManyToManyMethodsTestCase(TestCase):
         ):
             (relatable_thing,) = thing.relatable.select_related()
 
+        with self.subTest("QuerySet select_related"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().select_related()
+
     def test_alias_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -568,6 +615,9 @@ class ManyToManyMethodsTestCase(TestCase):
             "Access to `relatable.alias(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`",
         ):
             (relatable_thing,) = thing.relatable.alias(title2=F("title"))
+
+        with self.subTest("QuerySet alias"), self.assertNumQueries(1):
+            (relatable_thing,) = thing.relatable.all().alias(title2=F("title"))
 
     def test_prefetch_related_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -583,7 +633,10 @@ class ManyToManyMethodsTestCase(TestCase):
             "Access to `relatable.prefetch_related(...)` via `Thing2` instance was prevented because of previous `prefetch_related('relatable')`\n"
             "Update your `prefetch_related` to use `prefetch_related('relatable', 'relatable__attr')`",
         ):
-            (relatable_thing,) = thing.relatable.prefetch_related("thing")
+            (relatable_thing,) = thing.relatable.prefetch_related("thing2_set")
+
+        with self.subTest("QuerySet prefetch_related"), self.assertNumQueries(2):
+            (relatable_thing,) = thing.relatable.all().prefetch_related("thing2_set")
 
 
 class ReverseManyToManyMethodsTestCase(TestCase):
@@ -632,7 +685,10 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "Filter new objects from the database with:\n"
             "`Thing3.objects.filter(relatedthing3=relatedthing3.pk, ...)`",
         ):
-            (thing,) = related_thing.thing3_set.filter(title="Bert")
+            (thing,) = related_thing.thing3_set.filter(title="thing")
+
+        with self.subTest("QuerySet filter"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().filter(title="thing")
 
     def test_exclude_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -650,6 +706,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).exclude(...)`",
         ):
             (thing,) = related_thing.thing3_set.exclude(title="Bert")
+
+        with self.subTest("QuerySet exclude"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().exclude(title="Bert")
 
     def test_annotate_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -670,6 +729,11 @@ class ReverseManyToManyMethodsTestCase(TestCase):
                 title2=models.Value(True, output_field=models.BooleanField())
             )
 
+        with self.subTest("QuerySet annotate"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().annotate(
+                title2=models.Value(True, output_field=models.BooleanField())
+            )
+
     def test_earliest_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -685,7 +749,10 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "Fetch the earliest `Thing3` from the database with:\n"
             "`Thing3.objects.order_by(...).get(relatedthing3=relatedthing3.pk)`",
         ):
-            (thing,) = related_thing.thing3_set.earliest("title")
+            thing = related_thing.thing3_set.earliest("title")
+
+        with self.subTest("QuerySet earliest"), self.assertNumQueries(1):
+            thing = related_thing.thing3_set.all().earliest("title")
 
     def test_latest_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -702,7 +769,10 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "Fetch the latest `Thing3` from the database with:\n"
             "`Thing3.objects.order_by(...).get(relatedthing3=relatedthing3.pk)`",
         ):
-            (thing,) = related_thing.thing3_set.latest("title")
+            thing = related_thing.thing3_set.latest("title")
+
+        with self.subTest("QuerySet latest"), self.assertNumQueries(1):
+            thing = related_thing.thing3_set.all().latest("title")
 
     @skip("TODO: Not implemented")
     def test_first_when_prefetched(self) -> None:
@@ -727,7 +797,10 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "Fetch the latest `Thing3` from the database with:\n"
             "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).in_bulk()`",
         ):
-            (thing,) = related_thing.thing3_set.in_bulk()
+            things = related_thing.thing3_set.in_bulk()
+
+        with self.subTest("QuerySet in_bulk"), self.assertNumQueries(1):
+            things = related_thing.thing3_set.all().in_bulk()
 
     def test_defer_only_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -743,6 +816,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
         ):
             (thing,) = related_thing.thing3_set.defer("title")
 
+        with self.subTest("QuerySet defer"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().defer("title")
+
         # This exception will suppress `MissingLocalField`
         # Access to `Model.attr_id` was prevented.\n"
         # Remove the `only(...)` or remove the `defer(...)` where `Model` objects are selected
@@ -752,6 +828,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "You already have `Thing3` instances in-memory.",
         ):
             (thing,) = related_thing.thing3_set.only("title")
+
+        with self.subTest("QuerySet only"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().only("title")
 
     def test_reverse_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -770,6 +849,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
         ):
             (thing,) = related_thing.thing3_set.reverse()
 
+        with self.subTest("QuerySet reversed"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().reverse()
+
     def test_distinct_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -782,6 +864,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "Access to `thing3_set.distinct(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`",
         ):
             (thing,) = related_thing.thing3_set.distinct()
+
+        with self.subTest("QuerySet distinct"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().distinct()
 
     def test_values_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -799,6 +884,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "`Thing3.objects.filter(relatedthing3=relatedthing3.pk).values(...)`",
         ):
             (thing,) = related_thing.thing3_set.values("title")
+
+        with self.subTest("QuerySet values"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().values("title")
 
     def test_values_list_list_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -819,6 +907,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
         ):
             (thing,) = related_thing.thing3_set.values_list("title")
 
+        with self.subTest("QuerySet values_list"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().values_list("title")
+
     def test_order_by_list_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -836,6 +927,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
         ):
             (thing,) = related_thing.thing3_set.order_by("title")
 
+        with self.subTest("QuerySet order_by"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().order_by("title")
+
     def test_extra_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -849,6 +943,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "Update your `prefetch_related` to use `prefetch_related(Prefetch('thing3', Thing3.objects.extra(...)))",
         ):
             (thing,) = related_thing.thing3_set.extra()
+
+        with self.subTest("QuerySet extra"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().extra()
 
     def test_select_related_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -866,6 +963,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
         ):
             (thing,) = related_thing.thing3_set.select_related()
 
+        with self.subTest("QuerySet select_related"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().select_related()
+
     def test_alias_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
         thing.relatable.add(self.RelatedThing.objects.create(title="relatable"))
@@ -878,6 +978,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "Access to `thing3_set.alias(...)` via `RelatedThing3` instance was prevented because of previous `prefetch_related('thing3')`",
         ):
             (thing,) = related_thing.thing3_set.alias(title2=F("title"))
+
+        with self.subTest("QuerySet alias"), self.assertNumQueries(1):
+            (thing,) = related_thing.thing3_set.all().alias(title2=F("title"))
 
     def test_prefetch_related_when_prefetched(self) -> None:
         thing = self.Thing.objects.create(title="thing")
@@ -894,6 +997,9 @@ class ReverseManyToManyMethodsTestCase(TestCase):
             "Update your `prefetch_related` to use `prefetch_related('thing3', 'thing3__attr')`",
         ):
             (thing,) = related_thing.thing3_set.prefetch_related("thing")
+
+        with self.subTest("QuerySet alias"), self.assertNumQueries(2):
+            (thing,) = related_thing.thing3_set.all().prefetch_related("relatable")
 
 
 class ManyToManyEscapeHatchTestCase(TestCase):
