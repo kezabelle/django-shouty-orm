@@ -57,15 +57,25 @@ def rebind_related_manager_via_descriptor(
     attr_name: str,
     related_name: str,
 ) -> Manager:
+    escape_hatch_key = f"_shoutyorm_allow_{attr_name}"
+    logger.debug("Checking for %s on %r instance", escape_hatch_key, instance)
+    # Leave the manager alone, the user knows better.
+    if getattr(instance, escape_hatch_key, False):
+        logger.debug("escape hatch %s used for %r instance", escape_hatch_key, instance)
+        return manager
+
     # There's no prefetch_related() call at all.
     if not hasattr(instance, "_prefetched_objects_cache"):
         manager.all = exception_raising(
             manager.all,
             MissingReverseRelationField(
                 "Access to `{cls}.{attr}.all()` was prevented.\n"
-                "To fetch the `{remote_cls}` objects, add `prefetch_related({attr!r})` to the query where `{cls}` objects are selected.",
+                "To fetch the `{remote_cls}` objects, add `prefetch_related({attr!r})` to the query where `{cls}` objects are selected.\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_lower}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
+                cls_lower=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 related_name=related_name,
                 remote_cls=remote_model.__name__,
             ),
@@ -80,9 +90,12 @@ def rebind_related_manager_via_descriptor(
             manager.all,
             MissingReverseRelationField(
                 "Access to `{cls}.{attr}.all()` was prevented.\n"
-                "To fetch the `{remote_cls}` objects, add {related_name!r} to the existing `prefetch_related({existing_prefetch!s})` part of the query where `{cls}` objects are selected.",
+                "To fetch the `{remote_cls}` objects, add {related_name!r} to the existing `prefetch_related({existing_prefetch!s})` part of the query where `{cls}` objects are selected.\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_lower}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
+                cls_lower=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 related_name=related_name,
                 remote_cls=remote_model.__name__,
                 existing_prefetch=", ".join(
@@ -99,13 +112,15 @@ def rebind_related_manager_via_descriptor(
                 "Exclude existing objects in memory with:\n"
                 "`[{remote_class_var} for {remote_class_var} in {cls_var}.{attr}.all() if {remote_class_var} != ...]`\n"
                 "Exclude new objects from the database with:\n"
-                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).exclude(...)`",
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).exclude(...)`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.filter = exception_raising(
@@ -115,13 +130,15 @@ def rebind_related_manager_via_descriptor(
                 "Filter existing objects in memory with:\n"
                 "`[{remote_class_var} for {remote_class_var} in {cls_var}.{attr}.all() if {remote_class_var} ...]`\n"
                 "Filter new objects from the database with:\n"
-                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk, ...)`",
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk, ...)`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
 
@@ -132,13 +149,15 @@ def rebind_related_manager_via_descriptor(
                 "Annotate existing objects in memory with:\n"
                 "`for {remote_class_var} in {cls_var}.{attr}.all(): {remote_class_var}.xyz = ...`\n"
                 "Annotate new objects from the database with:\n"
-                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).annotate(...)`",
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).annotate(...)`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
 
@@ -149,13 +168,15 @@ def rebind_related_manager_via_descriptor(
                 "Fetch the earliest existing `{remote_cls}` in memory with:\n"
                 "`sorted({cls_var}.{attr}.all(), key=itertools.attrgetter(...))[0]`\n"
                 "Fetch the earliest `{remote_cls}` from the database with:\n"
-                "`{remote_cls}.objects.order_by(...).get({cls_var}={cls_var}.pk)`",
+                "`{remote_cls}.objects.order_by(...).get({cls_var}={cls_var}.pk)`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.latest = exception_raising(
@@ -165,13 +186,15 @@ def rebind_related_manager_via_descriptor(
                 "Fetch the latest existing `{remote_cls}` in memory with:\n"
                 "`sorted({cls_var}.{attr}.all(), reverse=True, key=itertools.attrgetter(...))[0]`\n"
                 "Fetch the latest `{remote_cls}` from the database with:\n"
-                "`{remote_cls}.objects.order_by(...).get({cls_var}={cls_var}.pk)`",
+                "`{remote_cls}.objects.order_by(...).get({cls_var}={cls_var}.pk)`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.in_bulk = exception_raising(
@@ -181,13 +204,15 @@ def rebind_related_manager_via_descriptor(
                 "Convert the existing in memory `{remote_cls}` instances with:\n"
                 "`{{{remote_class_var}.pk: {remote_class_var} for {remote_class_var} in {cls_var}.{attr}.all()}}`\n"
                 "Fetch the latest `{remote_cls}` from the database with:\n"
-                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).in_bulk()`",
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).in_bulk()`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         # This is just an early warning. Attempting to use any of the instances
@@ -198,13 +223,15 @@ def rebind_related_manager_via_descriptor(
             manager.defer,
             NoMoreFilteringAllowed(
                 "Access to `{attr}.defer(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "You already have `{remote_cls}` instances in-memory.",
+                "You already have `{remote_cls}` instances in-memory.\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         # This is just an early warning. Attempting to use any of the instances
@@ -215,13 +242,15 @@ def rebind_related_manager_via_descriptor(
             manager.only,
             NoMoreFilteringAllowed(
                 "Access to `{attr}.only(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "You already have `{remote_cls}` instances in-memory.",
+                "You already have `{remote_cls}` instances in-memory.\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.reverse = exception_raising(
@@ -231,25 +260,29 @@ def rebind_related_manager_via_descriptor(
                 "Convert the existing in memory `{remote_cls}` instances with:\n"
                 "`tuple(reversed({cls_var}.{attr}.all()))`\n"
                 "Fetch the latest `{remote_cls}` from the database with:\n"
-                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).order_by(...)`",
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).order_by(...)`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.distinct = exception_raising(
             manager.distinct,
             NoMoreFilteringAllowed(
-                "Access to `{attr}.distinct(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`",
+                "Access to `{attr}.distinct(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.values = exception_raising(
@@ -259,13 +292,15 @@ def rebind_related_manager_via_descriptor(
                 "Convert the existing in memory `{remote_cls}` instances with:\n"
                 '`[{{"attr1": {remote_class_var}.attr1, "attr2": {remote_class_var}.attr2, ...}} for {remote_class_var} in {cls_var}.{attr}.all()]`\n'
                 "Fetch the latest `{remote_cls}` from the database with:\n"
-                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).values(...)`",
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).values(...)`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.values_list = exception_raising(
@@ -275,13 +310,15 @@ def rebind_related_manager_via_descriptor(
                 "Convert the existing in memory `{remote_cls}` instances with:\n"
                 '`[({remote_class_var}.attr1, "attr2": {remote_class_var}.attr2, ...) for {remote_class_var} in {cls_var}.{attr}.all()]`\n'
                 "Fetch the latest `{remote_cls}` from the database with:\n"
-                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).values_list(...)`",
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).values_list(...)`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.order_by = exception_raising(
@@ -291,64 +328,74 @@ def rebind_related_manager_via_descriptor(
                 "Convert the existing in memory `{remote_cls}` instances with:\n"
                 "`sorted({cls_var}.{attr}.all(), key=itertools.attrgetter(...))`\n"
                 "Fetch the latest `{remote_cls}` from the database with:\n"
-                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).order_by(...)`",
+                "`{remote_cls}.objects.filter({cls_var}={cls_var}.pk).order_by(...)`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.extra = exception_raising(
             manager.extra,
             NoMoreFilteringAllowed(
                 "Access to `{attr}.extra(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Update your `prefetch_related` to use `prefetch_related(Prefetch({x_related_name!r}, {remote_cls}.objects.extra(...)))`",
+                "Update your `prefetch_related` to use `prefetch_related(Prefetch({x_related_name!r}, {remote_cls}.objects.extra(...)))`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.select_related = exception_raising(
             manager.select_related,
             NoMoreFilteringAllowed(
                 "Access to `{attr}.select_related(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Update your `prefetch_related` to use `prefetch_related(Prefetch({x_related_name!r}, {remote_cls}.objects.select_related(...)))`",
+                "Update your `prefetch_related` to use `prefetch_related(Prefetch({x_related_name!r}, {remote_cls}.objects.select_related(...)))`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.alias = exception_raising(
             manager.alias,
             NoMoreFilteringAllowed(
-                "Access to `{attr}.alias(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`",
+                "Access to `{attr}.alias(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
         manager.prefetch_related = exception_raising(
             manager.alias,
             NoMoreFilteringAllowed(
                 "Access to `{attr}.prefetch_related(...)` via `{cls}` instance was prevented because of previous `prefetch_related({x_related_name!r})`\n"
-                "Update your `prefetch_related` to use `prefetch_related({x_related_name!r}, '{x_related_name!s}__attr')`",
+                "Update your `prefetch_related` to use `prefetch_related({x_related_name!r}, '{x_related_name!s}__attr')`\n"
+                "You can allow access to `{attr}` on this `{cls}` instance by using `{cls_var}.{escape_hatch} = True`",
                 attr=attr_name,
                 cls=model.__name__,
-                cls_var=model.__name__.lower(),
+                cls_var=model._meta.model_name,
+                escape_hatch=escape_hatch_key,
                 x_related_name=related_name,
                 remote_cls=remote_model.__name__,
-                remote_class_var=remote_model.__name__.lower(),
+                remote_class_var=remote_model._meta.model_name,
             ),
         )
     return manager

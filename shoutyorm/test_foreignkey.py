@@ -705,5 +705,19 @@ class ForeignKeyEscapeHatchDescriptorTestCase(TestCase):
         with self.assertNumQueries(0):
             self.assertEqual(model_b.name, "Not quite admin")
             model_b.pk
-        with self.assertNumQueries(0):
+        with self.assertNumQueries(1):
+            model_b._shoutyorm_allow_back_to_a = True
             (model_a,) = model_b.back_to_a.all()
+
+    def test_filtering_etc_when_cached(self) -> None:
+        self.ModelA.objects.create(
+            name="Bert", b=self.ModelB.objects.create(name="Not quite admin")
+        )
+        with self.assertNumQueries(2):
+            (model_b,) = self.ModelB.objects.prefetch_related("back_to_a").all()
+        with self.assertNumQueries(0):
+            self.assertEqual(model_b.name, "Not quite admin")
+            model_b.pk
+        with self.assertNumQueries(1):
+            model_b._shoutyorm_allow_back_to_a = True
+            model_b.back_to_a.filter(pk=model_b.pk).exists()
